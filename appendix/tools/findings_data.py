@@ -1,0 +1,444 @@
+# -*- coding: utf-8 -*-
+# Unified findings register. Snapshot tags in evidence: [B]=base 89c2c31, [C]=current fa40270,
+# [R]=raw runtime evidence (evidence/*.txt), [U]=user-reported runtime observations (docx, no raw output).
+# Fields: id, title, domain, baseline, verification, type, severity, justification, evidence, trigger, impact, close, sources, release_blocker
+F = []
+def f(id, title, domain, baseline, ver, typ, sev, why, ev, trig, imp, close, src, rb=False):
+    F.append(dict(id=id, title=title, domain=domain, baseline=baseline, verification=ver, type=typ, severity=sev,
+                  justification=why, evidence=ev, trigger=trig, impact=imp, close=close, sources=src, release_blocker=rb))
+
+# ---------------- ARC: architecture / provenance ----------------
+f("ARC-01", "هوية الكود العامل في الإنتاج غير مثبتة (tag محلي، image ID مختلف عن label، env مؤقت، تشغيل بـ--no-deps)",
+  "Architecture / Provenance", "RUNTIME", "Verified (labels) / Unknown (provenance)", "Operational uncertainty", "High",
+  "لا يمكن الجزم بأي كود يعمل؛ كل استنتاج عن سلوك الإنتاج معلّق على هذا الافتراض.",
+  "[R] runtime.txt: image=nile-pharma-erp/accounting:release-89c2c31، image_id=sha256:0b814f… ≠ com.docker.compose.image=sha256:7dd5c9…، created 2026-09-29 (commit 89c2c31 بتاريخ 2026-09-26 — git-and-schema.txt:13)، environment_file=.env,/tmp/nile-recovery-release.env، depends_on=\"\"؛ [B] docs/SERVER-STEPS-2026-09-25-ar.md (اصطلاح IMAGE_TAG=release-$(git rev-parse --short HEAD) وبناء محلي)",
+  "أي قرار يعتمد على أن الإنتاج = 89c2c31 (إصلاح، rollback، مقارنة schema).",
+  "قد تكون الصور مبنية من checkout آخر مع إعادة استخدام الـtag؛ rollback غير مضمون لأن الـtag محلي وقابل للاستبدال.",
+  "E-01/E-02/E-05: docker image inspect + فحص وجود dist/modules/general-ledger داخل الحاوية العاملة.",
+  "F03-F06 (التقرير السابق), DEPLOY-06")
+f("ARC-02", "قاعدة البيانات غالبًا متقدمة على الكود العامل (accounting وorganization وinventory على مستوى CURRENT)",
+  "Architecture / Data", "RUNTIME vs BASELINE", "Inferred", "Operational uncertainty", "High",
+  "تعدد الأدلة الثانوية المتسقة؛ يغيّر فهم ما هو 'الإنتاج' ويؤثر على أي rollback أو نشر.",
+  "[U] docx.txt:393-395 (nile_accounting 50 جدولًا، organization 26) ويطابق CURRENT (49+1 و25+1) لا BASELINE (36+1 و24+1) — data/schema_cur.json vs schema_base.json؛ [U] docx.txt:811-829 (_prisma_migrations حتى bank_reconciliation)؛ [U] docx.txt:429 (cost layers + outbox في nile_inventory) — CURRENT-only migrations؛ [B] apps/accounting/prisma/migrations ينتهي عند 20260924120000_po_workflow_and_match_sod",
+  "تشغيل كود BASELINE فوق schema أحدث؛ أي rollback لصورة أقدم؛ نشر CURRENT.",
+  "الجداول الجديدة فارغة على الأغلب؛ لا rollback لقاعدة البيانات دون DDL يدوي؛ بيئات جديدة من git لن تطابق الإنتاج. تحليل التوافق يشير إلى أن كود BASELINE يعمل فوق الامتداد (migrations إضافية) — Inferred.",
+  "E-03/E-04: _prisma_migrations + information_schema.tables لكل قاعدة (metadata فقط).",
+  "ACC-01(notes), DEPLOY-06, INVPRD-27, F11")
+f("ARC-03", "تعريف PostgreSQL الإنتاجي خارج git (docker-compose.postgres.yml وشبكة nile-internal وvolume nile_postgres_data غير موجودة في أي snapshot)",
+  "Architecture / DR", "BOTH", "Verified (غياب في المستودع) + [U] تشغيل", "Potential risk", "High",
+  "نظام السجل الوحيد (9 قواعد على PG18) غير قابل لإعادة الإنشاء من المصدر.",
+  "grep في base/ وcur/ لا يجد docker-compose.postgres.yml أو nile-internal أو nile_postgres_data؛ [U] docx.txt:212-272؛ [C] docs/PRODUCTION-HOSTINGER.md:74 'No PostgreSQL runs on the VPS'؛ [C] scripts/merge-launcher.test.js:109-110",
+  "فقدان المضيف، ترقية PG، إعادة بناء الخادم.",
+  "لا توجد صورة/إعداد/credentials bootstrap موثقة؛ RTO غير معروف.",
+  "E-07: docker inspect nile-postgres (labels، image، mounts) دون env؛ استرجاع الملف أو إعادة بنائه وحفظه (بدون أسرار).",
+  "DEPLOY-01")
+f("ARC-04", "البنية الموثقة تتعارض مع الكود والتشغيل (Neon/Railway/Vercel مقابل VPS + PG18 محلي)",
+  "Architecture / Documentation", "BOTH", "Verified", "Potential risk", "Medium",
+  "لا أثر تشغيلي مباشر، لكنه سبب جذري لأدوات نشر وDR تستهدف منصة خاطئة (OPS-01, OPS-04).",
+  "[C] README.md:93-97؛ [B]/[C] docker-compose.production.yml:5-9 و190-198 (تعليقات Neon)؛ [C] docs/PRODUCTION-LAST-MILE.md:35-41؛ [C] docs/audit/02-architecture.md:12-30 (Railway)؛ PRODUCTION_HARDENING.md:13-15 (Vercel)؛ [R] runtime.txt DATABASE_URL→nile-postgres",
+  "الاعتماد على الوثائق في التشغيل أو الاستعادة.", "إجراءات خاطئة وقت الأزمات.",
+  "قرار المالك حول المنصة المستهدفة ثم وثيقة نشر واحدة معتمدة.", "REQDOC-14, DEPLOY-16, C1-C5")
+f("ARC-05", "CURRENT: ثماني وحدات محاسبية (في سبعة مجلدات) غير مسجلة في AppModule (35 route) بينما الواجهة تستدعي 12 منها",
+  "Architecture / Accounting", "CURRENT", "Verified (static, script)", "Confirmed defect", "High",
+  "يمنع النشر: شاشات الدفع للموردين وGL workbench ولوحات المالية ستعيد 404.",
+  "[C] apps/accounting/src/app.module.ts:39-51؛ 05-API-Inventory-and-Routing.md §3 (gl-workbench 8، finance-dashboard 1، audit-timeline 1، supplier-payments 2)؛ [C] apps/web/lib/api.ts:264-272, 2477, 2483, 2652-2653؛ [C] apps/web/app/dashboard/payables/page.tsx:344",
+  "نشر CURRENT واستخدام Payables/GL workbench/finance-dashboard/audit-timeline.",
+  "وظائف موثقة كـ'مكتملة' غير موجودة فعليًا؛ تعارض بين تطبيقين لـsupplier-payments.",
+  "قرار أي تنفيذ هو المعتمد، ثم تسجيله مع PermissionsGuard واختبار end-to-end.", "ACC-08, WEBEVT-01", True)
+f("ARC-06", "لا هوية للخدمات: الاتصالات بين الخدمات تتم بتوكن المستخدم النهائي",
+  "Architecture / Security", "BOTH", "Verified", "Improvement", "Low",
+  "تصميم مقبول لنظام داخلي صغير لكنه يربط صلاحيات المستخدم بمجالات أخرى.",
+  "[C] apps/accounting/src/modules/invoices/invoices.service.ts:242-247؛ [C] apps/products/.../products.controller.ts:48 (public-prices يتطلب accounting.invoices.create)",
+  "انتهاء صلاحية توكن المستخدم أثناء سلسلة طويلة؛ مستخدم بلا صلاحية مجال آخر.",
+  "فشل عمليات مشروعة؛ منح صلاحيات أوسع من اللازم.", "تقرير معماري لاحق (service tokens).", "SEC-08")
+
+# ---------------- DB: schema / migrations ----------------
+f("DB-01", "تاريخ migrations المحاسبة عُدّل يدويًا (ROLLED_BACK ثم APPLIED بـ0 steps) وملفات migrations عُدّلت بعد إنشائها",
+  "Database / Migrations", "RUNTIME + CURRENT", "Verified (git) / Inferred (DB من وصف المستخدم)", "Operational uncertainty", "High",
+  "لا يُعرف أي نسخة SQL أنشأت الجداول المالية فعليًا؛ checksums على الأغلب لا تطابق الملفات.",
+  "[R] accounting-migration-history.txt (general_ledger عُدّل في 8954eb3, ba88bd6, cfec643, 40bcd36, 10f1515؛ gl_workbench في e9d6d81, 3fbb59d, df51cb3؛ financial_instruments ×3)؛ [U] docx.txt:811-829",
+  "أي migrate deploy لاحق، أو بناء بيئة من الصفر.", "انحراف دائم بين DDL المستودع والإنتاج؛ resolve يدوي بلا runbook أو تفويض موثق.",
+  "E-03: checksums من _prisma_migrations مقارنة بـsha256sum للملفات؛ سؤال Q-OPS-3 عن من نفّذ resolve.", "ACC-01(notes), DEPLOY-12, F12")
+f("DB-02", "CURRENT: schema.prisma لا يطابق migrations المحاسبة (22 اختلافًا) → بوابة الإصدار ترفض وdb-migrate يخرج بالكود 3 ويوقف كل الخدمات",
+  "Database / Release", "CURRENT", "Verified (تشغيل validator ساكن على النسختين)", "Confirmed defect", "High",
+  "مع `up` عادي لا تبدأ أي خدمة لأن الجميع ينتظر db-migrate.",
+  "تشغيل `node scripts/validate-schema-migrations.cjs`: BASELINE ✅ / CURRENT ❌ (journal_entries.entry_number، journal_lines.cost_center_id، supplier_payments.vendor_invoice_id…)؛ [B]/[C] scripts/production-migrate.sh:95-100 (exit 3)؛ [C] docker-compose.production.yml:114-118 (depends_on service_completed_successfully)؛ [U] docx: db-migrate Exited(3)",
+  "نشر CURRENT بالمسار القياسي.", "توقف كامل للنشر؛ يدفع لمسارات استرداد يدوية (مصدر الانحراف الحالي).",
+  "توحيد شكل جداول GL وsupplier_payments ثم إعادة تشغيل validator؛ بعض الـ'missing' false positives من parser.", "DEPLOY-05", True)
+f("DB-03", "شكلان متنافسان لجداول GL ولـsupplier_payments في migrations (legacy مقابل workbench؛ v1 مقابل v2) — شكل الإنتاج غير معروف",
+  "Database / Accounting", "CURRENT + RUNTIME", "Inferred", "Operational uncertainty", "High",
+  "يحدد ما إذا كان أي كود GL/AP في CURRENT قابلًا للعمل.",
+  "[C] prisma/migrations/20260927120000_general_ledger/migration.sql:6-13,28؛ 20260928110000_gl_workbench/migration.sql:57-74 (على قاعدة جديدة تُطبق السلسلة كاملة: v1 لـsupplier_payments يفوز لأن v2 يستخدم IF NOT EXISTS، وgl_workbench يضيف أعمدة ويبقي أعمدة legacy NOT NULL → كلا كاتبي GL يفشل — تحقق مستقل، Inferred)؛ 20260927143000_supplier_payments vs 20260928090000_supplier_payments؛ scripts/accounting-migration-reconciliation.test.cjs:17-18",
+  "تشغيل أي مسار GL أو دفع موردين.", "سيناريو A أو B يكسر أحد الكاتبين؛ كود supplier-payments A لا يعمل مع شكل v2.",
+  "E-03b: \\d+ journal_entries/journal_lines/supplier_payments (metadata).", "ACC §5.2")
+f("DB-04", "لا تكامل مرجعي عبر الخدمات: مراجع منطقية (*Id) بلا FK، والـsaga تضع 'unknown' و0 عند غياب الحقول",
+  "Database / Data ownership", "BOTH", "Verified (schema + code)", "Potential risk", "Low",
+  "نتيجة متوقعة لنمط database-per-service، لكن لا توجد أداة مطابقة عبر القواعد.",
+  "data/schema_stats.md (accounting 78، sales 38، inventory 36 مرجعًا منطقيًا)؛ [C] apps/accounting/src/modules/saga-listener/saga-listener.service.ts:138-143",
+  "حذف/أرشفة master data، أحداث ناقصة.", "سجلات يتيمة أو أطراف وهمية؛ التسوية تحتاج أدوات عبر القواعد.",
+  "E-12: count(*) WHERE account_id='unknown' OR total=0.", "ACC-25, INVPRD-09")
+f("DB-05", "لا قيود CHECK على أرصدة المخزون (on_hand>=0, reserved<=on_hand) — المنع في التطبيق فقط",
+  "Database / Inventory", "BOTH", "Verified", "Potential risk", "Low",
+  "التطبيق يمنع السالب في معظم المسارات؛ مسار release غير serializable.",
+  "[C] apps/inventory/prisma/migrations (CHECK الوحيد في 20260927170000_inventory_cost_layers:16)؛ allocation.engine.ts:718-738",
+  "تزامن cancel+ship أو أخطاء مستقبلية.", "أرصدة سالبة صامتة.", "E-11: count of negative balances.", "INVPRD-13")
+f("DB-06", "فهارس وقيود: 23 عمود FK بلا index، و7 حقول status نصية حرة، وحقول audit ناقصة (heuristic)",
+  "Database / Quality", "CURRENT", "Verified (فحص آلي heuristic)", "Improvement", "Low",
+  "حجم البيانات صغير جدًا حاليًا (8-11MB لكل قاعدة حسب [U]).",
+  "data/schema_stats.md الأقسام 'FK بلا index' و'status كنص حر'",
+  "نمو البيانات.", "أداء ونزاهة حالات.", "مراجعة فهرسة عند تصميم الإصلاح.", "auto-scan")
+f("DB-07", "عدم تطابق Prisma مع SQL في جداول GL (fiscalPeriodId إلزامي في Prisma وnullable في SQL، currency enum مقابل TEXT)",
+  "Database / Accounting", "CURRENT", "Verified", "Confirmed defect", "Medium",
+  "قراءة صفوف GL عبر Prisma ستفشل لصفوف كتبها GeneralLedgerService بلا فترة.",
+  "[C] apps/accounting/prisma/schema.prisma (JournalEntry/JournalLine)؛ general-ledger.service.ts:10-14",
+  "تشغيل CURRENT.", "أخطاء قراءة/تقارير.", "توحيد النموذج.", "ACC §5.2")
+f("DB-08", "Backfill لمرة واحدة في vendor_invoice_fx: فواتير موردين ينشئها كود BASELINE بعد الـmigration تبقى base_total=0",
+  "Database / AP", "RUNTIME (إن صح ARC-02)", "Inferred", "Potential risk", "Low",
+  "لا يقرأ BASELINE هذا العمود؛ يظهر الأثر عند نشر CURRENT فقط.",
+  "[C] prisma/migrations/20260928143000_vendor_invoice_fx/migration.sql",
+  "نشر CURRENT فوق بيانات أنشأها BASELINE.", "تقارير AP بالعملة الأساسية خاطئة.",
+  "E-12: count vendor_invoices WHERE base_total=0 AND total_amount>0.", "ACC §5.2")
+f("DB-09", "اختلاف نسخة PostgreSQL بين البيئات (18 إنتاج، 16 تطوير/CI، بوابة parity مثبتة على 16)",
+  "Database / Platform", "BOTH", "Verified (code) + [U]", "Potential risk", "Medium",
+  "الاختبارات لا تمثل محرك الإنتاج.", "[C] docker-compose.yml (postgres:16)؛ ci.yml؛ docker-compose.ci-production.yml:7؛ [U] docx.txt:198-200",
+  "سلوك مختلف بين النسخ في migrations.", "أخطاء تظهر في الإنتاج فقط.", "توحيد النسخة.", "DEPLOY-13")
+f("DB-10", "ترقيم المستندات غير تسلسلي (INV-<base36 ms>، SO-<base36>-uuid)",
+  "Database / Compliance", "BOTH", "Verified", "Question", "Low",
+  "يعتمد على متطلبات الضرائب/ETA غير المحسومة.", "[C] invoices.service.ts:444, 715, 1018؛ orders.service.ts:647",
+  "تدقيق ضريبي.", "قد لا يقبل كترقيم رسمي.", "سؤال للمالك (Q-ACC-5).", "ACC-19, SCI-31")
+f("DB-11", "لا سياسة احتفاظ/أرشفة لجداول audit وoutbox وprocessed_events وjob_runs وDLQ",
+  "Database / Operations", "BOTH", "Verified (غياب)", "Improvement", "Low",
+  "الحجم الحالي صغير.", "grep لا يجد retention/deleteMany", "نمو طويل الأمد.", "تضخم وتباطؤ verify.", "قرار سياسة الاحتفاظ.", "WEBEVT-18")
+f("DB-12", "إيجابي: المبالغ المالية Decimal بدقة صريحة في كل الخدمات (لا Float)، مع اختلاف scales (14,2 / 18,2 / 18,4)",
+  "Database / Financial precision", "BOTH", "Verified (فحص آلي)", "Improvement", "Info",
+  "ضابط جيد؛ اختلاف الـscale يحتاج قاعدة تقريب موحدة.", "data/schema_stats.md؛ فحص أنواع الحقول المالية (75 حقلًا Decimal في accounting)",
+  "—", "فروق تقريب بين تكلفة المخزون (4 منازل) والقيود (2).", "توثيق قاعدة التقريب.", "auto-scan")
+
+# ---------------- ACC: accounting ----------------
+f("ACC-01", "BASELINE لا يحتوي دفتر أستاذ عام: ميزان المراجعة من أرصدة لا يُرحَّل إليها، وإقفال السنة يعيد إضافة صافي الدخل في كل تشغيل",
+  "Accounting / GL", "BASELINE", "Verified (code)", "Confirmed gap", "High",
+  "لا يوجد سجل قيد مزدوج في النسخة العاملة؛ التقارير المالية الرسمية لا يمكن أن تأتي من النظام.",
+  "[B] apps/accounting/src/modules/coa/coa.service.ts:208-255؛ fiscal-periods.service.ts:150 (executeYearEndClosing؛ تعليق 136-143 يدّعي تصفير الحسابات الاسمية ولا يفعل)، 189-195؛ cash-banks.service.ts (تعليق الرأس)؛ git-and-schema.txt:690-726 (لا JournalEntry)",
+  "استخدام /coa/trial-balance أو year-end-closing.", "ميزان صفري أو مضلل؛ أرباح محتجزة متضخمة عند تكرار الإقفال.",
+  "سؤال Q-ACC-1: أين الدفتر الرسمي؟", "ACC-11")
+f("ACC-02", "CURRENT: كل مسارات كتابة GL تفشل على أي schema محتمل → توقف الفوترة والتحصيل والـsaga",
+  "Accounting / GL", "CURRENT", "Verified (code + SQL) / Inferred (runtime)", "Confirmed defect (latent)", "Critical",
+  "Critical إذا نُشر CURRENT: الفوترة من الطلبات، الإشعارات الدائنة، COGS، الإهلاك، وتحصيل الفواتير تتراجع؛ لا أثر على BASELINE.",
+  "[C] apps/accounting/src/modules/gl-workbench/gl-posting.service.ts:47,50-52 (UPDATE accounts — جدول غير موجود في nile_accounting)؛ general-ledger.service.ts:22-23,39-40؛ invoices.service.ts:512 وcredit-notes.service.ts:61 (حساب CRM كحساب أستاذ)؛ general_ledger/migration.sql:6-13,28؛ gl_workbench/migration.sql:72-74",
+  "أي StockReserved، مرتجع، إهلاك، GoodsReceived، أو تحصيل على مستوى فاتورة في CURRENT.",
+  "rollback للمعاملات، رسائل إلى DLQ، طلبات عالقة عند ALLOCATED.",
+  "عدم نشر CURRENT accounting كما هو؛ توحيد كاتب GL؛ اختبار تكامل يزرع COA وينفذ inserts حقيقية.", "ACC-02(notes)", True)
+f("ACC-03", "CURRENT: ترحيل GL داخل معاملة التحصيل؛ أي نقص في الإعداد (فترة OPEN، حسابات COA) يمنع قبض النقدية",
+  "Accounting / AR", "CURRENT", "Verified (code) / Inferred (runtime)", "Potential risk", "High",
+  "يربط استلام النقد بإعداد GL لم يكن مطلوبًا في BASELINE؛ ومع UPDATE على جدول accounts غير الموجود (ACC-02) يُرجح فشل كل تحصيل يُرحَّل (عند وجود خزينة أو شيك).",
+  "[C] payments.service.ts:183-187؛ gl-posting.service.ts:26-44, 51-52",
+  "قاعدة بلا fiscal_periods أو COA مكتمل.", "رفض التحصيل.", "E-13: عدّ fiscal_periods وحسابات COA المطلوبة؛ قرار سياسة (منع أم suspense).", "ACC-03(notes)", True)
+f("ACC-04", "CURRENT: عكس التحصيل/دفع المورد في GlPostingService يرحّل بنفس اتجاه القيد الأصلي",
+  "Accounting / GL", "CURRENT", "Verified (code)", "Confirmed defect (latent)", "High",
+  "يضاعف الأثر بدل إلغائه؛ الاختبار يتحقق من المجاميع فقط.",
+  "[C] gl-posting.service.ts:13,17,24 (AR non-CHECK: Dr treasury/Cr 1121 في الأصل والعكس)؛ gl-posting.integration.spec.ts:50-60",
+  "POST /payments/:id/reverse أو شيك مرتد.", "النقدية وAR في GL خاطئة بضعف المبلغ.", "تصحيح الاتجاه واختبار لكل سطر.", "ACC-04(notes)", True)
+f("ACC-05", "CURRENT: عكس القيد في GeneralLedgerService يعلّم الأصل REVERSED (فيُستبعد) ويرحّل قيد عكس POSTED (فيُحتسب) → أثر سالب أحادي في الميزان",
+  "Accounting / GL", "CURRENT", "Verified (code) / Inferred (effect)", "Confirmed defect (latent)", "High",
+  "الفواتير الملغاة تظهر بإيراد سالب.", "[C] general-ledger.service.ts:48-49, 119, 146؛ coa.service.ts:244؛ invoices.service.ts:1229-1230",
+  "إلغاء/استبدال فاتورة.", "قوائم مالية خاطئة.", "اختيار اصطلاح واحد للعكس.", "ACC-05(notes)", True)
+f("ACC-06", "عكس التحصيل وارتداد الشيك لا يعكسان رصيد الخزينة/البنك",
+  "Accounting / Treasury", "BOTH", "Verified (code, تحقق مستقل)", "Confirmed defect", "High",
+  "يعمل في النسخة المرجّحة للإنتاج؛ أرصدة الخزائن مضخمة ولا تكشفها التسوية الداخلية.",
+  "[B] apps/accounting/src/modules/payments/payments.service.ts:369-400؛ [C] :381-420 (لا financialAccountEntry في reverseInTx؛ الكتابة فقط عند الاستلام :181 و:634)",
+  "عكس دفعة CASH/DEPOSIT/TRANSFER/E_WALLET/INSTAPAY.", "عجز غير مفسر عند الجرد النقدي.",
+  "E-13: count payments WHERE reversed AND financial_account_id IS NOT NULL؛ تعريف قيد خزينة عكسي.", "ACC-06(notes)")
+f("ACC-07", "التحصيلات المركزية (allocations) لا يمكن عكسها أو ارتدادها ولا تُفك التخصيصات",
+  "Accounting / AR", "BOTH", "Verified (code) / Inferred (error)", "Confirmed defect", "Medium",
+  "لا مسار تصحيح سوى تعديل قاعدة البيانات.", "[B] payments.service.ts:370؛ [C] :386 (payment.invoiceId=null)",
+  "عكس دفعة أنشئت عبر allocations[].", "خطأ/404 والفواتير تبقى PAID.", "E-13: count payments WHERE invoice_id IS NULL؛ سؤال Q-ACC-4.", "ACC-07(notes)")
+f("ACC-08", "الشيك المحصَّل (CLEARED) لا يصل للخزينة/البنك؛ وفي CURRENT يبقى في 1122",
+  "Accounting / Cheques", "BOTH", "Verified", "Confirmed gap", "Medium",
+  "أرصدة البنوك لا تتضمن تحصيلات الشيكات من النظام.", "[C] payments.service.ts:70, 446-453, 771",
+  "أي تحصيل بشيك.", "الخزينة أقل من الواقع؛ 1122 يتضخم.", "سؤال Q-ACC-3؛ E-13 حسب check_status.", "ACC-09(notes)")
+f("ACC-09", "عملة الدفعة لا تُقارن بعملة الفاتورة/الخزينة؛ دفاتر فرعية بعملات مختلطة",
+  "Accounting / FX", "BOTH", "Verified", "Potential risk", "Medium",
+  "يتطلب استخدام عملات غير EGP (المسار المباشر يدعمها).", "[C] payments.service.ts:147-153, 180-181؛ invoices.service.ts:849, 1226",
+  "فاتورة أو دفعة USD.", "حالة سداد خاطئة وكشف حساب مختلط العملات.", "E-13: توزيع العملات.", "ACC-10(notes)")
+f("ACC-10", "لا توجد عملية سداد موردين في BASELINE؛ وفي CURRENT تنفيذان متعارضان غير مسجلين",
+  "Accounting / AP", "BOTH", "Verified", "Confirmed gap", "High",
+  "دورة الشراء لا تُغلق داخل النظام؛ الفواتير لا تصل إلى PAID أبدًا في BASELINE.",
+  "[B] لا SupplierPayment model (git-and-schema.txt:690-726)؛ [C] modules/supplier-payments (شكل v1) و modules/supplier-ledger/supplier-payments.service.ts (شكل v2، `WHERE id = ${id}::uuid` على عمود TEXT :198, :247)",
+  "سداد مورد.", "AP يُدار خارج النظام أو كقيد خزينة حر بلا ربط.", "سؤال Q-ACC-2.", "ACC §4.4, ACC-08(notes)")
+f("ACC-11", "CURRENT: سير عمل القيود اليدوية بلا فصل مهام، ومسار ترحيل مباشر يتجاوز الاعتماد، وصلاحياته غير موجودة في IAM",
+  "Accounting / Controls", "CURRENT", "Verified / Inferred (perms)", "Potential risk", "Medium",
+  "ضعف رقابي على قيود يدوية.", "[C] general-ledger.service.ts:82-111؛ general-ledger.controller.ts:19؛ غياب accounting.ledger.* في apps/iam",
+  "إنشاء/اعتماد قيد يدوي.", "قيد بلا مراجع مستقل.", "قرار سياسة SoD (Q-ACC-9).", "ACC-13(notes)")
+f("ACC-12", "CURRENT: أمر الشراء يُنشأ معتمدًا مباشرة بواسطة SUPER_ADMIN (أزيل فصل المهام الموجود في BASELINE)",
+  "Accounting / Procurement controls", "CURRENT", "Verified", "Question", "Medium",
+  "قرار 2026-09-28 ينص على PO بواسطة SUPER_ADMIN، لكنه لا يذكر إلغاء الاعتماد.",
+  "[C] matching.service.ts:100-158 مقابل [B] :91-127, 186-230؛ [C] docs/P1-BUSINESS-DECISION-PACK.md:426",
+  "إنشاء PO.", "شخص واحد ينشئ ويعتمد.", "تأكيد المالك (Q-ACC-6).", "ACC-14(notes)")
+f("ACC-13", "BASELINE: الإهلاك الشهري غير idempotent وغير transactional",
+  "Accounting / Fixed assets", "BASELINE", "Verified", "Confirmed defect", "Medium",
+  "تكرار التشغيل يضاعف الإهلاك في سجل الأصول.", "[B] fixed-assets.service.ts:111-195؛ لا unique على depreciation_entries",
+  "تشغيل run-monthly مرتين لنفس الشهر.", "قيمة دفترية خاطئة.", "E-13: duplicates query.", "ACC-15(notes)")
+f("ACC-14", "إقفال الفترات لا يمنع الترحيل (BASELINE لا يتحقق إطلاقًا؛ CURRENT غير متسق)",
+  "Accounting / Period close", "BOTH", "Verified", "Confirmed gap", "Medium",
+  "مستندات بتواريخ داخل فترات مقفلة.", "[B] لا مرجع لـfiscalPeriod خارج الوحدة؛ [C] fiscal-periods.service.ts:101-138؛ general-ledger.service.ts:10-14",
+  "تسجيل بأثر رجعي.", "تقارير فترات مقفلة تتغير.", "سؤال Q-ACC-10.", "ACC-17(notes), REQDOC-09")
+f("ACC-15", "تقارير VAT ونموذج 41 تُبنى من إدخالات ضريبية يدوية فقط؛ رقم التسجيل الضريبي مكتوب في الكود",
+  "Accounting / Tax", "BOTH", "Verified", "Potential risk", "Medium",
+  "إقرار VAT من النظام ناقص ما لم تُدخل كل الحركات يدويًا.", "[C] tax.service.ts:70, 139-140, 181-182؛ credit-notes.service.ts:73,90",
+  "إعداد إقرار ضريبي.", "إقرار ناقص.", "سؤال Q-ACC-7؛ E-13: count tax_entries vs invoices.", "ACC-18(notes), REQDOC-08")
+f("ACC-16", "CURRENT: معالجات أحداث متعددة الخطوات غير ذرية، وخطأ 'already posted' يحوّل إعادة التسليم إلى poison message",
+  "Accounting / Integration", "CURRENT", "Verified (code)", "Potential risk", "Medium",
+  "PO projection قد لا يتحدث أبدًا.", "[C] saga-listener.service.ts:330-357؛ general-ledger.service.ts:35",
+  "فشل خطوة لاحقة في onGoodsReceived.", "رسائل DLQ وحالات PO خاطئة.", "transactional inbox لكل المعالجة.", "ACC-21(notes)")
+f("ACC-17", "إعادة إصدار الفاتورة تنشئ رأس فاتورة بلا سطور وبمبالغ حرة دون اعتماد ثانٍ",
+  "Accounting / AR controls", "BOTH", "Verified", "Potential risk", "Medium",
+  "تغيير قيمة فاتورة بصلاحية واحدة.", "[C] invoices.service.ts:986-1062", "reissue.", "فقد ربط الدفعات/السطور؛ تغيير قيم بلا مراجعة.", "قرار سياسة.", "ACC-23(notes)")
+f("ACC-18", "مرتجع على فاتورة مسددة بالكامل تُرفض محاسبيًا بينما يعيد المخزون البضاعة للرصيد",
+  "Accounting / Returns", "BOTH", "Verified (code) / Inferred (consequence)", "Confirmed defect", "High",
+  "حالة أعمال عادية تنتج تباعدًا بين المخزون وAR (متطلب الشركة F10).",
+  "[B] invoices.service.ts:909-916؛ [C] :937-943؛ [C] docs/audit/2026-09-18-company-workflows-vs-erp-ar.md:168-182",
+  "مرتجع بعد السداد الكامل.", "مخزون زائد بلا رصيد دائن للعميل؛ رسالة في DLQ.", "قرار المالك: رصيد دائن أم استرداد (Q-BUS-12).", "REQDOC-07")
+f("ACC-19", "BASELINE: المطابقة الثلاثية تفترض الكمية المستلمة = المطلوبة",
+  "Accounting / Procurement", "BASELINE", "Verified", "Confirmed gap", "Medium",
+  "قرار 2026-09-28 مطبق في CURRENT فقط؛ أثر محدود لغياب سداد الموردين في BASELINE.",
+  "[B] matching.service.ts:604 مقابل [C] :644", "تسجيل فاتورة مورد.", "اعتماد للسداد مقابل كميات لم تستلم.", "تأكيد الكود العامل (ARC-01).", "REQDOC-05")
+f("ACC-20", "CURRENT: الإهلاك يتطلب حسابات 5211/1219 غير موجودة في الدليل المزروع",
+  "Accounting / Fixed assets", "CURRENT", "Verified", "Confirmed defect (latent)", "Low",
+  "يفشل حتى إنشاء الحسابات يدويًا.", "[C] fixed-assets.service.ts:143-146؛ coa.service.ts seed؛ scripts/accounting-p0-gate.cjs:43",
+  "run-monthly.", "فشل الإهلاك.", "زرع الحسابات أو تغيير الربط.", "ACC-16(notes)")
+f("ACC-21", "التكلفة المحمّلة والمشتريات العامة سجلات فقط بلا أثر على المخزون أو الخزينة أو GL؛ حالة المشتريات قابلة للتعديل بأي اتجاه",
+  "Accounting / AP", "BOTH", "Verified", "Confirmed gap", "Low", "وظائف تسجيلية.", "[C] landed-cost.service.ts:116-162؛ general-purchases.service.ts:67-129",
+  "—", "تكلفة المخزون لا تشمل landed cost.", "قرار نطاق.", "ACC-24(notes)")
+f("ACC-22", "GET /coa/tree يكتب: يزرع دليل الحسابات الافتراضي عند جدول فارغ",
+  "Accounting / GL", "BOTH", "Verified", "Improvement", "Low", "أثر جانبي لطلب قراءة.", "[C] coa.service.ts:177-198", "أول قراءة.", "دليل افتراضي غير معتمد.", "—", "ACC-26(notes)")
+f("ACC-23", "CURRENT: تسوية AP مقابل GL بإشارات متعاكسة وبلا فلتر POSTED → انحراف دائم",
+  "Accounting / Reconciliation", "CURRENT", "Inferred", "Potential risk", "Low", "يولد إنذارات كاذبة.", "[C] supplier-ledger.service.ts:32؛ reconciliation.service.ts:77", "nightly-reconciliation.", "ضوضاء تخفي الانحرافات الحقيقية.", "—", "ACC-22(notes)")
+
+# ---------------- SAL: sales / crm / incentives ----------------
+f("SAL-01", "حدث الدفع يكتب PAID فوق SHIPPED/DELIVERED/ON_HOLD_RECALL/CANCELLED؛ والعكس يعيد الطلب المسلَّم قابلًا للإلغاء",
+  "Sales / Order lifecycle", "BOTH", "Verified (code، تحقق مستقل) / Inferred (scenario)", "Confirmed defect", "High",
+  "يفسد الحالة المرجعية للطلب بعد خروج البضاعة.", "[C]/[B] apps/sales/src/modules/saga/saga.orchestrator.ts:481-484 (update غير مشروط)؛ :520-523؛ [C] orders.service.ts:1235, 1332-1342",
+  "طلب آجل شُحن/سُلّم ثم سُدد بالكامل ثم ارتد الشيك.", "حالة DELIVERED تضيع؛ إمكانية إلغاء طلب مسلَّم وإبطال فاتورته.",
+  "E-14: توزيع الحالات وطلبات saga DONE بحالة ≠ PAID.", "SCI-01")
+f("SAL-02", "وصول StockReserved متأخر يعيد إحياء طلب ملغى (ALLOCATED) ويحجز المخزون دون إفراج",
+  "Sales / Saga", "BOTH", "Verified (code) / Inferred (race)", "Potential risk", "High",
+  "طلب ملغى يصبح قابلًا للشحن بلا فاتورة.", "[C] orders.service.ts:1332؛ saga.orchestrator.ts:328-338, 386-389؛ [C] apps/inventory/.../reservation.listener.ts:179-240",
+  "إلغاء أثناء ALLOCATING.", "حجز معلق، شحن بلا فاتورة.", "E-14 مقارنة الحجوزات المفتوحة بالطلبات الملغاة.", "SCI-02")
+f("SAL-03", "مدفوعات الفواتير المباشرة لا تخفض تعرض الائتمان في Sales بينما الفاتورة تزيده",
+  "Sales / Credit control", "BOTH", "Verified", "Confirmed defect", "High",
+  "التعرض يتضخم باستمرار للعملاء الذين يشترون بفواتير مباشرة (المسار الرئيسي في الواجهة).",
+  "[C] saga.orchestrator.ts:408-417, 440-446؛ [C] apps/accounting/.../payments.service.ts:189-191, 654-657",
+  "أي دفعة على فاتورة مباشرة.", "CREDIT_HOLD كاذب.", "E-14: مقارنة account_credit.outstanding بـAR المفتوح.", "SCI-03")
+f("SAL-04", "BASELINE: لا سقف للخصم في الخادم (0-100%)، السقف 30% في الواجهة فقط",
+  "Sales / Pricing control", "BASELINE", "Verified", "Confirmed defect", "High",
+  "أي حامل sales.orders.create يمكنه البيع بخصم 100% عبر API (تخفيف جزئي: الطلبات ≥100,000 تذهب للاعتماد — [B] orders.service.ts:20, 611؛ والاستيراد أيضًا حتى 100% — import-orders.dto.ts:33).", "[B] apps/sales/src/modules/orders/dto/create-order.dto.ts:12؛ orders.service.ts:541-557؛ apps/web/app/dashboard/orders/new/page.tsx:242",
+  "استدعاء API مباشر.", "فواتير بأسعار منخفضة تنتقل للمحاسبة.", "E-14: max(discount_pct) وعدد الخصومات >12%.", "SCI-04, REQDOC-05")
+f("SAL-05", "CURRENT: بوابة الخصم تعتمد صلاحية غير موجودة (sales.discounts.approve) وتتجاهل مستويات مصفوفة الاعتماد",
+  "Sales / Pricing control", "CURRENT", "Verified", "Confirmed defect", "Medium",
+  "بين 12% و15% (أعلى مستوى في المصفوفة) لا يبيع إلا SUPER_ADMIN، وفوق 15% مرفوض للجميع؛ مستويات 3/5/7% بلا أثر.", "[C] orders.service.ts:556-570؛ غياب الكود في apps/iam/prisma/seed.ts؛ apps/sales/prisma/migrations/20260914040000_discount_policies/migration.sql:45-50",
+  "خصم >12%.", "تعطيل عملي أو تجاوز الصلاحيات.", "قرار Q-SAL-2.", "SCI-05", True)
+f("SAL-06", "المرتجعات مسموحة على طلبات مفوترة لم تُشحن (الفاتورة تصدر عند الحجز) → إعادة مخزون وهمية وائتمان AR",
+  "Sales / Returns", "BOTH", "Verified (code) / Inferred (impact)", "Potential risk", "Medium",
+  "يتطلب موافقة معتمِد لا يرى أن البضاعة لم تخرج.", "[C] returns.service.ts:16, 384-387؛ reservation.listener.ts:353-398",
+  "مرتجع على INVOICED.", "مخزون مزدوج ورصيد دائن لبضاعة لم تُسلَّم.", "قرار Q-SAL-5.", "SCI-08")
+f("SAL-07", "شرائح العمولة تُطبق على كل دفعة منفردة لا على المبيعات التراكمية للفترة",
+  "Incentives", "BOTH", "Verified (code) / Inferred (intent)", "Question", "High",
+  "مع خطة 44 شريحة تقريبًا كل دفعة تأخذ الشريحة الأولى (1.333%).", "[C] apps/incentives/src/modules/engine/incentive.engine.ts:53-63؛ intake.service.ts:112؛ prisma/seed.ts:4-7",
+  "أي PaymentReceived.", "عمولات أقل بكثير من سياسة الشركة (F04).", "تأكيد المالك (Q-SAL-1).", "SCI-10, REQ-61")
+f("SAL-08", "لا يُزرع rule set للحوافز في مسار الإنتاج → كل PaymentReceived يفشل إلى DLQ إن كان الجدول فارغًا",
+  "Incentives / Ops", "BOTH", "Verified (scripts) / Unknown (DB)", "Operational uncertainty", "Medium",
+  "[U] جداول الحوافز شبه فارغة.", "[C] rules.service.ts:29-32؛ scripts/production-migrate.sh:108-126؛ [U] docx.txt:475-476",
+  "أول دفعة.", "لا عمولات تسجل.", "E-15: SELECT version,is_active FROM rule_sets.", "SCI-11")
+f("SAL-09", "سجل الحوافز بلا تقييد نطاق (rep scoping) ولا فصل مهام في الاعتماد/الصرف؛ العكس مسموح بعد PAID",
+  "Incentives / Controls", "BOTH", "Verified", "Potential risk", "Medium", "اطلاع وتعديل واسع.", "[C] ledger.service.ts:32-41, 99-123؛ rules.controller.ts:11",
+  "—", "اعتماد ذاتي للعمولة.", "تعريف المصفوفة.", "SCI-13")
+f("SAL-10", "المرتجعات والإشعارات الدائنة لا تعدّل العمولات؛ الاسترداد يعكس سطرًا واحدًا لكل payment_id",
+  "Incentives", "BOTH", "Verified / Inferred", "Question", "Medium", "قد يبقي عمولات غير مستحقة.", "[C] intake.service.ts:62-64, 176-179",
+  "مرتجع بعد الدفع.", "عمولة زائدة.", "Q-SAL-1.", "SCI-12, SCI-14")
+f("SAL-11", "المندوب يستطيع تعديل حد ائتمان عملائه، والقيمة 0 تعطّل الرقابة؛ التغيير بلا outbox ولا تسوية مع Sales",
+  "CRM / Credit governance", "BOTH", "Verified / Unknown (role assignment)", "Potential risk", "Medium",
+  "يعتمد على من يحمل crm.accounts.credit-limit.update.", "[C] apps/crm/src/modules/accounts/accounts.service.ts:275-306؛ apps/sales/.../credit.service.ts:348-351",
+  "تعديل الحد.", "تجاوز الرقابة الائتمانية؛ اختلاف الحد بين CRM وSales.", "E-16 أدوار الصلاحية؛ Q-SAL-3.", "SCI-15, SCI-16")
+f("SAL-12", "قبول طلبات لعملاء مؤرشفين (isActive=false)", "Sales / Master data", "BOTH", "Verified", "Confirmed defect", "Medium",
+  "ضابط أساسي مفقود.", "[C] orders.service.ts:196-221؛ accounts.service.ts:365-390", "طلب لعميل مؤرشف.", "مبيعات لعملاء موقوفين.", "—", "SCI-17")
+f("SAL-13", "صور إثبات التسليم والفواتير الموقعة تُخزن على قرص الحاوية دون volume",
+  "Sales / Evidence retention", "BOTH", "Verified (compose) / Unknown (mounts)", "Operational uncertainty", "Medium",
+  "تضيع مع كل إعادة إنشاء للحاوية.", "[C] apps/sales/src/modules/shipments/storage/file-storage.service.ts:37-39؛ docker-compose.production.yml (volume redpanda_data فقط)",
+  "إعادة إنشاء الحاوية (حدث في 09-29 للمحاسبة).", "فقد إثباتات التسليم.", "E-17: docker inspect mounts لحاوية sales.", "SCI-18")
+f("SAL-14", "إعدادات التسعير (سياسات الخصم، قواعد الأسعار، العروض، ملف تسعير العميل، نسبة عمولة العميل) لا تُطبق أبدًا على الطلبات",
+  "Sales / Pricing", "BOTH", "Verified", "Confirmed gap", "Medium",
+  "شاشات تعطي انطباعًا بوجود رقابة.", "[C] orders.service.ts:24-25, 571-589؛ grep: المحركات مستخدمة داخل وحداتها فقط",
+  "تهيئة قاعدة تسعير.", "قرارات تجارية بلا أثر.", "Q-SAL-2 / REQ-15 vs REQ-29.", "SCI-20")
+f("SAL-15", "مسودات الطلبات المستوردة تتبع سياسة تسعير أضعف ولا يُعاد التحقق منها عند الإرسال",
+  "Sales / Pricing", "BOTH", "Verified", "Confirmed defect", "Medium", "تجاوز ضوابط الخصم.", "[C] orders.service.ts:909-910, 953, 976, 985, 1087-1116",
+  "استيراد Excel.", "أسعار/خصومات غير مراقبة.", "—", "SCI-22")
+f("SAL-16", "إلغاء الطلب من حجز الاستدعاء يتجاهل الأموال المحصلة", "Sales / Recall", "BOTH", "Verified / Inferred", "Potential risk", "Medium",
+  "طلب ملغى مع فاتورة مدفوعة بلا مسار استرداد.", "[C] traceability.service.ts:246-288؛ saga-listener.service.ts:203-205", "CANCEL من ON_HOLD_RECALL.", "التزام استرداد غير مسجل.", "Q-SAL-5.", "SCI-24")
+f("SAL-17", "تجاوز الحجز الائتماني يتخطى اعتماد ≥100,000؛ العتبة مكتوبة في الكود وتشمل الشحن",
+  "Sales / Approvals", "BOTH", "Verified", "Question", "Low", "سلوك مقصود حسب التعليق.", "[C] orders.service.ts:20, 642, 652-654؛ credit.service.ts:385-388",
+  "credit-override.", "طلب كبير بلا اعتماد.", "Q-SAL-4.", "SCI-23, SCI-28")
+f("SAL-18", "عمليات غائبة: عرض السعر (Quotation)، احتساب تحقيق المستهدفات، سياسة المرتجعات (90 يومًا قبل الانتهاء)",
+  "Sales / Process gaps", "BOTH", "Verified (absence)", "Question", "Info", "لا متطلب معتمد صريح.", "sales-crm-incentives notes P7؛ REQ-68",
+  "—", "عمل يدوي خارج النظام.", "Q-SAL-6.", "SCI P7, REQ-68")
+
+# ---------------- INV: inventory / products ----------------
+f("INV-01", "CURRENT: طبقات تكلفة FIFO تُنشأ عند الاستلام وتُستهلك فقط في الفواتير المباشرة؛ بقية الحركات لا تحدّثها",
+  "Inventory / Costing", "CURRENT", "Verified (code) / Inferred (impact)", "Confirmed defect (latent)", "High",
+  "فوترة مباشرة مرفوضة (409) أو COGS خاطئ وتقييم مضخم.", "[C] apps/inventory/src/modules/transactions/transactions.service.ts:90-96؛ allocation.engine.ts:454-481؛ لا backfill",
+  "تحويل ثم فاتورة مباشرة؛ مخزون قديم.", "COGS/تقييم خاطئ.", "قرار طريقة التكلفة (Q-INV-1).", "INVPRD-01", True)
+f("INV-02", "CURRENT: إلغاء الصرف المباشر لا يعيد طبقات التكلفة ولا يلغي حدث StockIssued → قيد COGS بلا فاتورة",
+  "Inventory / Accounting", "CURRENT", "Verified", "Confirmed defect (latent)", "High", "قيد تكلفة لفاتورة غير موجودة.",
+  "[C] allocation.engine.ts:531-538, 582-641؛ apps/accounting/.../saga-listener.service.ts:297-316", "فشل معاملة الفاتورة بعد issue-direct.", "GL مخزون/تكلفة خاطئ.", "—", "INVPRD-02", True)
+f("INV-03", "أحداث دورة حياة الدفعات والأسعار في Products بلا outbox؛ فقدان RecallInitiated لا يمكن إعادته",
+  "Products / Quality", "BOTH", "Verified (code) / Inferred (impact)", "Potential risk", "High",
+  "دواء مستدعى قد يبقى قابلًا للحجز في المخزون.", "[C] apps/products/src/modules/batches/batches.service.ts:147-148, 165-176, 245-265",
+  "فشل Kafka لحظة إجراء الجودة.", "تباين حالة الدفعة بين Products وInventory/Sales.", "E-18 مقارنة batches.status بـblocked_batches.", "INVPRD-04")
+f("INV-04", "بضاعة تُستلم بعد إفراج الدفعة تبقى في الحجر ولا تُفرج تلقائيًا",
+  "Inventory / QC", "BOTH", "Inferred", "Potential risk", "Medium", "مخزون مخفي ونقص في التخصيص.", "[C] transactions.service.ts:65؛ reservation.listener.ts:410-415؛ batches.service.ts:147",
+  "استلام ثانٍ لدفعة RELEASED.", "رفض حجوزات.", "E-18 query.", "INVPRD-05")
+f("INV-05", "CURRENT: تقرير التقييم يعد الطبقات مرتين عند وجود أكثر من pool للدفعة في المخزن", "Inventory / Reporting", "CURRENT", "Verified", "Confirmed defect", "Medium",
+  "تقرير فقط.", "[C] apps/inventory/src/modules/stock/stock.service.ts:43-57", "دفعة موزعة على pools.", "قيمة مخزون مضخمة.", "—", "INVPRD-06")
+f("INV-06", "مهمة stock-conservation تعدّ استلامات الحجر مرتين → انحراف كاذب في كل تشغيل", "Inventory / Reconciliation", "BOTH", "Verified (SQL read)", "Confirmed defect", "Medium",
+  "التسوية الآلية الوحيدة للمخزون غير مفيدة.", "[C] apps/inventory/src/modules/jobs/inventory-jobs.ts:67-74؛ transactions.service.ts:78-106", "أي استلام للحجر.", "إخفاء الانحراف الحقيقي.", "E-19 job_runs.", "INVPRD-07")
+f("INV-07", "شحن طلبات المبيعات لا ينتج COGS؛ الفواتير المباشرة فقط (CURRENT)", "Inventory / Accounting", "BOTH", "Verified", "Question", "Medium",
+  "هامش الربح غير مكتمل.", "[C] allocation.engine.ts:783-831", "شحن طلب.", "GL مخزون/COGS لا يتبع الحركة.", "Q-INV-1.", "INVPRD-08")
+f("INV-08", "الاستلام يقبل أي productId/batchId/supplierId وتاريخ انتهاء من العميل دون تحقق من Products", "Inventory / Master data", "BOTH", "Verified", "Potential risk", "Medium",
+  "يؤثر على FEFO ونطاق الاستدعاء.", "[C] transactions/dto/goods-receipt.dto.ts:2-11؛ transactions.service.ts:70-77", "خطأ إدخال.", "ترتيب FEFO خاطئ.", "E-18 مقارنة.", "INVPRD-09")
+f("INV-09", "لا مفتاح idempotency للاستلام ومرتجع المورد والتسويات وتحميل الأمانة والشطب", "Inventory / Commands", "BOTH", "Verified", "Potential risk", "Medium",
+  "النقر المزدوج يكرر الحركة وقيد AP.", "[C] DTOs: goods-receipt, supplier-return, stock-adjustment, add-stock, write-off", "إعادة إرسال بعد 5xx.", "حركات مكررة.", "E-19 duplicates.", "INVPRD-10")
+f("INV-10", "زيادة المخزون بالتسوية بلا حد ولا اعتماد، والعتبة كمية لا قيمة", "Inventory / Controls", "BOTH", "Verified", "Question", "Medium",
+  "خلق مخزون دون رقابة.", "[C] transactions.service.ts:21, 252-253", "FOUND_STOCK كبير.", "مخزون وهمي.", "Q-INV-4.", "INVPRD-16")
+f("INV-11", "لا مسار إتلاف/إرجاع للمخزون التالف أو المحجور، ولا عملية جرد", "Inventory / Process", "BOTH", "Verified", "Confirmed gap", "Medium",
+  "التالف يتراكم بلا مخرج.", "[C] transactions.service.ts:45-59؛ quarantine.service.ts:19-25؛ inventory-jobs.ts", "رفض دفعة.", "أرصدة غير حقيقية.", "Q-INV-3, Q-INV-7.", "INVPRD-17, P17")
+f("INV-12", "مسار قائمة الأسعار غالبًا مظلّل بـGET /products/:id", "Products / API", "BOTH", "Inferred (not executed)", "Potential risk", "Medium",
+  "شاشة قوائم الأسعار قد لا تعمل.", "[C] price-lists.controller.ts:11؛ products.controller.ts:53؛ app.module.ts:31؛ apps/web/lib/api.ts:1296", "فتح الشاشة.", "404.", "E-20 (بيئة اختبار فقط).", "INVPRD-18")
+f("INV-13", "نقاط issue-direct/rollback-direct قابلة للاستدعاء مباشرة لأي حامل accounting.invoices.create", "Inventory / Authorization", "BOTH", "Verified / Inferred", "Potential risk", "Medium",
+  "صرف مخزون بلا فاتورة (وفي CURRENT قيد COGS).", "[C] apps/inventory/src/modules/allocation/allocation.controller.ts:59-68", "استدعاء API عبر /api/inventory/allocation/*.", "نقص مخزون غير مبرر.", "—", "INVPRD-25")
+f("INV-14", "BASELINE: تحميل الأمانة لا يرفض الدفعات المنتهية/المحظورة (شرط المالك قبل الاستخدام الإنتاجي)", "Inventory / Consignment", "BASELINE", "Verified", "Confirmed defect", "Medium",
+  "ضابط صلاحية دوائي.", "[B] consignment.service.ts:121-140 مقابل [C] :128, 159-177؛ [C] docs/DECISIONS-2026-09-25-ar.md:105-106", "تحميل أمانة.", "دواء منتهي لدى العميل.", "E-21 consignment_stock منتهية.", "REQDOC-06")
+f("INV-15", "ثغرات تزامن ثانوية (release غير serializable، عكس التسوية، رفض طلب التسوية غير مشروط)", "Inventory / Concurrency", "BOTH", "Inferred", "Potential risk", "Low",
+  "تتطلب تزامنًا نادرًا.", "[C] allocation.engine.ts:718-738؛ transactions.service.ts:346-354, 379-401", "طلبات متزامنة.", "أرصدة/حالات خاطئة.", "E-11.", "INVPRD-13/14/15")
+f("INV-16", "وحدات القياس غير مستخدمة في كميات المخزون، والمواقع الداخلية (bins) قائمة رئيسية فقط", "Inventory / Master data", "BOTH", "Verified", "Question", "Info",
+  "قد يكون مقصودًا.", "[C] apps/products/src/modules/uom/uom.service.ts؛ apps/inventory/prisma/schema.prisma:63-72", "—", "—", "Q-INV-6, Q-INV-8.", "INVPRD-22/24")
+f("INV-17", "CURRENT: outbox المخزون بلا backoff ولا حماية تداخل ولا يحترم OUTBOX_DISPATCH_ENABLED", "Inventory / Integration", "CURRENT", "Verified", "Potential risk", "Medium",
+  "رسالة سامة تعطل GoodsReceived/StockIssued.", "[C] apps/inventory/src/modules/transactions/inventory-outbox.service.ts:12, 35-80", "خطأ نشر مستمر.", "تأخير قيود AP/COGS.", "—", "INVPRD-11, WEBEVT-06")
+
+# ---------------- SEC / ORG ----------------
+f("SEC-01", "حامل iam.users.update يستطيع تغيير كلمة مرور أي مستخدم بما فيهم SUPER_ADMIN أو إيقافه", "Security / IAM", "BOTH", "Verified (code، تحقق مستقل)", "Confirmed defect", "High",
+  "مسار تصعيد صلاحيات كامل؛ القابلية تعتمد على وجود دور يحمل الصلاحية غير SUPER_ADMIN.", "[C]/[B] apps/iam/src/modules/users/users.service.ts:160-176 (لا assertWithinAuthority)؛ قارن :228-237",
+  "PATCH /api/iam/users/{adminId} {password}.", "استيلاء على حساب المدير.", "E-16: الأدوار التي تحمل الصلاحية.", "IAM-01")
+f("SEC-02", "CURRENT: seed الخاص بـIAM معطوب (حقل username غير موجود) ولا ينشئ SUPER_ADMIN، و44 صلاحية مطلوبة غير موجودة في الكتالوج", "Security / IAM / Release", "CURRENT", "Verified (code) / Inferred (runtime)", "Confirmed defect", "High",
+  "يكسر الإصدار بعد تطبيق migrations (set -eu) ويخلق deadlock للصلاحيات الجديدة.", "[C] apps/iam/prisma/seed.ts:52 (إنشاء Permission بـ{code} فقط بينما domain/module/action إلزامية → خطأ type وخطأ Prisma حتى دون SEED_ADMIN_PASSWORD)، :55-62 (username غير موجود)؛ apps/iam/prisma/schema.prisma:41-72؛ scripts/production-migrate.sh:36, 118-124؛ [B] seed.ts:252-266",
+  "نشر CURRENT أو بناء بيئة DR.", "إصدار نصف مكتمل؛ وحدات HR/payroll ترفض الجميع في بيئة جديدة.", "استعادة منطق BASELINE ودمج الأكواد الجديدة.", "IAM-03", True)
+f("SEC-03", "مجلد Data/ بملفات أعمال حقيقية (رواتب، عملاء، فواتير، مبيعات) مُضاف إلى git في النسختين", "Security / Data governance", "BOTH", "Verified (أسماء فقط)", "Confirmed defect", "High",
+  "بيانات حساسة تُنسخ مع كل clone وتبقى في التاريخ.", "base/Data (53MB) وcur/Data (58MB)؛ أسماء مثل مرتبات.xlsx والعملاء.xlsx وData.rar؛ Dockerfiles لا تنسخ Data/ لكن `.dockerignore` لا يستثنيه فيُرسل ضمن build context",
+  "أي clone أو مشاركة للمستودع (بما فيها هذه الحزمة).", "تعرّض بيانات شخصية ومالية.", "قرار المالك + إزالة وتنظيف التاريخ (تنفيذ لاحق).", "SEC-06")
+f("SEC-04", "CURRENT: أربعة controllers محاسبية بلا PermissionsGuard؛ أداة CI تتحقق من نص الـdecorator فقط", "Security / Authorization", "CURRENT", "Verified (static, script)", "Potential risk", "Medium",
+  "كامن: غير mounted حاليًا؛ تسجيلها كما هي يتيح ترحيل/عكس قيود ودفع موردين لأي مستخدم مسجل.", "[C] gl-workbench.controller.ts:6-25؛ audit-timeline.controller.ts:4-8؛ finance-dashboard.controller.ts:4-8؛ supplier-ledger/supplier-payments.controller.ts:6-31؛ scripts/validate-controller-permissions.cjs:13-16,39-46",
+  "تسجيل الوحدات لإصلاح ARC-05.", "تجاوز SoD.", "PermissionsGuard كـAPP_GUARD أو فحص CI.", "SEC-01(notes), WEBEVT-02", True)
+f("SEC-05", "الصلاحيات داخل JWT ولا يُعاد التحقق منها؛ الإلغاء يتأخر حتى 15 دقيقة؛ تتبع الجلسات الخاملة معطل افتراضيًا", "Security / Sessions", "BOTH", "Verified / Unknown (env)", "Potential risk", "Medium",
+  "logout لا يلغي access token.", "[C] apps/iam/src/modules/auth/auth.service.ts:132-136؛ packages/security/src/index.ts:13؛ docker-compose.production.yml:59",
+  "إيقاف مستخدم.", "نافذة وصول بعد الإيقاف.", "E-22 قيمة SESSION_IDLE_ENFORCEMENT.", "IAM-02")
+f("SEC-06", "توكنات الوصول والتحديث (7 أيام) في localStorage مع CSP يسمح بـunsafe-inline", "Security / Web", "BOTH", "Verified", "Potential risk", "Medium",
+  "لم يُعثر على XSS؛ أثر أي XSS هو استيلاء كامل.", "[C] apps/web/app/login/page.tsx:35-36؛ lib/api.ts:40-43؛ next.config.js:11", "XSS.", "سرقة الجلسة.", "قرار تصميم.", "SEC-02(notes), WEBEVT-13")
+f("SEC-07", "Rate limiting والقفل مرتبطان بـreq.ip دون trust proxy → كل المستخدمين يشتركون في نفس الحد خلف NPM/web", "Security / Availability", "BOTH", "Inferred", "Operational uncertainty", "Medium",
+  "قد يجعل حد الدخول 5/دقيقة للشركة كلها و60/دقيقة لكل خدمة.", "[C] apps/*/src/app.module.ts (ThrottlerModule)؛ غياب trust proxy (grep)؛ [U] docx: NPM→web",
+  "ذروة استخدام أو استيراد كبير.", "429 جماعي، سجلات IP بلا قيمة جنائية.", "E-16: توزيع ip_address في sessions.", "SEC-03(notes), SCI-19, INVPRD-26")
+f("SEC-08", "سر HS256 واحد مشترك بين الخدمات التسع، وأسرار تطوير حرفية في ملفات dev/CI", "Security / Secrets", "BOTH", "Verified (repo) / Unknown (prod values)", "Potential risk", "Medium",
+  "لم يُعثر على سر إنتاجي في المستودع.", "[C] .env.example:25-35؛ docker-compose.yml:158-295؛ .github/workflows/ci.yml:54-60 (أسماء فقط)؛ apps/iam/src/config/env.ts:164-172",
+  "تسرب سر خدمة واحدة.", "سك توكنات SUPER_ADMIN.", "E-23 تشغيل check-production-env.sh (أطوال وحالات فقط).", "SEC-04(notes)")
+f("SEC-09", "ملف .env.backup.20260927-130337 غير متتبع داخل مجلد المستودع على الخادم وغير مغطى بـ.gitignore", "Security / Secrets", "RUNTIME", "Verified ([R] git status)", "Potential risk", "Medium",
+  "git add -A عرضي يرفع أسرار الإنتاج.", "[R] git-and-schema.txt:9؛ [C] .gitignore:6-12", "commit عرضي.", "تسرب أسرار.", "نقل الملف/صلاحيات 600 (تنفيذ لاحق).", "SEC-05(notes), F02")
+f("SEC-10", "فصل المهام (SoD) كشفي فقط، والمصفوفة تشير إلى 7 صلاحيات غير موجودة؛ SUPER_ADMIN مستثنى في الرواتب", "Security / SoD", "BOTH", "Verified", "Confirmed defect", "Medium",
+  "ادعاء '7/7 rules enforced' غير صحيح.", "[C] apps/iam/src/modules/sod/sod-matrix.ts:33-43؛ sod.service.ts؛ apps/organization/.../payroll.service.ts:356-359", "إسناد أدوار.", "تركيبات صلاحيات سامة.", "Q-SEC-2.", "IAM-08, REQDOC-11")
+f("SEC-11", "التوقيع الإلكتروني لا يحقق نية 21 CFR Part 11 (لا إعادة مصادقة، الكيان خارج الـMAC، canonicalization ناقص، لا تحقق عند الإفراج)", "Security / Quality", "BOTH", "Verified", "Confirmed defect", "Medium",
+  "ادعاء تنظيمي؛ التوقيع عند الإفراج معطل افتراضيًا.", "[C] apps/iam/src/modules/signatures/signatures.service.ts:12-16؛ apps/products/.../batches.service.ts:149", "إفراج دفعة.", "توقيع غير ملزم.", "Q-SEC-8.", "IAM-06")
+f("SEC-12", "Copilot يرسل بيانات ERP إلى مزودي LLM خارجيين؛ CURRENT يجعل ذلك افتراضيًا", "Security / Data protection", "BOTH (default CURRENT)", "Verified / Unknown (provider)", "Question", "Medium",
+  "قرار خصوصية وإقامة بيانات.", "[C] apps/web/components/copilot/copilot-chat.tsx:47؛ apps/iam/src/modules/workspace/copilot.service.ts:209؛ ai-router.service.ts:20-40", "سؤال يحتوي بيانات عملاء.", "نقل بيانات لطرف ثالث.", "Q-SEC-7.", "SEC-10(notes), WEBEVT-14")
+f("SEC-13", "سجلات audit_logs المحلية best-effort، للنجاح فقط، قابلة للتعديل، وIP هو الوكيل؛ السجل المركزي يغطي الأحداث فقط", "Security / Audit trail", "BOTH", "Verified / Inferred (IP)", "Potential risk", "Medium",
+  "عمليات master data بلا حدث لا توجد إلا في سجل ضعيف.", "[C] apps/accounting/src/common/interceptors/audit.interceptor.ts:36-60؛ apps/audit-aggregator/prisma/migrations/20260909130000_audit_immutable_chain", "مراجعة تدقيق.", "فجوات في الأثر.", "Q-WEB-2.", "WEBEVT-17/18")
+f("SEC-14", "نقاط /health/details بلا مصادقة؛ مصادقة الـBFF مجرد وجود header", "Security / Exposure", "BOTH", "Verified", "Potential risk", "Low",
+  "الخدمات مربوطة بـ127.0.0.1 وغير مكشوفة عبر rewrites.", "[C] apps/*/src/common/health.ts:116؛ apps/web/app/api/system-health/route.ts:23-24", "تعرض المنافذ.", "تسريب معلومات تشغيلية.", "—", "SEC-07(notes), WEBEVT-16")
+f("SEC-15", "ملاحظات أمنية منخفضة: تعداد الحسابات وDoS القفل، انتهاء الجلسة 7 أيام ثابت، لا MFA، حجم توكن SUPER_ADMIN ≈7.4KB", "Security / IAM", "BOTH", "Verified / Inferred", "Improvement", "Low",
+  "مجتمعة منخفضة الأثر.", "[C] auth.service.ts:96-115, 144؛ users.mfa_enabled غير مقروء", "—", "—", "—", "IAM-04/05/10, SEC-09(notes)")
+f("SEC-16", "ضوابط إيجابية: ValidationPipe(whitelist, forbidNonWhitelisted) في كل الخدمات، JwtAuthGuard عام، PermissionsGuard fail-closed، bcrypt 12، تدوير refresh مع كشف إعادة الاستخدام، 5 routes عامة فقط", "Security", "BOTH", "Verified (script + code)", "Improvement", "Info",
+  "خط أساس جيد.", "05-API-Inventory-and-Routing.md (548/553 route بصلاحية method-level، 5 public)؛ apps/*/src/main.ts", "—", "—", "—", "SEC-11(notes)")
+f("ORG-01", "اعتماد الإجازة بلا تحقق من الحالة (خصم مزدوج للرصيد، اعتماد إجازة مرفوضة) وبلا منع اعتماد ذاتي", "Organization / HR", "BOTH", "Verified", "Confirmed defect", "Medium",
+  "[U] جداول HR شبه فارغة.", "[B]/[C] apps/organization/src/modules/attendance/attendance.service.ts:170-218 (rejectLeave لا يعيد الرصيد كذلك)", "اعتماد مكرر.", "أرصدة إجازات خاطئة.", "—", "ORG-01(notes)")
+f("ORG-02", "مطالبات المصروفات: رفض من أي حالة بما فيها PAID، قراءة غير مقيدة، لا تحقق من المالك أو المدير", "Organization / Expenses", "BOTH", "Verified", "Confirmed defect", "Medium",
+  "عيب مسجل كـP0 من المالك ومؤجل.", "[C] apps/organization/src/modules/expenses/expenses.service.ts:68-86, 153-168, 197-215؛ [C] docs/DECISIONS-2026-09-25-ar.md:134-140", "رفض بعد الدفع.", "سجل مصروفات مضلل.", "Q-ORG-2.", "ORG-02(notes), REQDOC-10")
+f("ORG-03", "تعديلات الرواتب تغيّر netPay لمسيرات FINALIZED/PAID دون إعادة اعتماد؛ الحوافز = 0 ثابتة", "Organization / Payroll", "BOTH", "Verified", "Confirmed defect", "Medium",
+  "يخالف وثيقة التصميم.", "[C] apps/organization/src/modules/payroll/payroll.service.ts:311, 437-458؛ docs/ERP-EMPLOYEE-PAYROLL-DESIGN.md:44", "تعديل بعد الإقفال.", "رواتب مسجلة لا تطابق المدفوع.", "Q-ORG-1.", "ORG-03(notes)")
+f("ORG-04", "لا تكامل مالي من HR: صرف الرواتب والمصروفات والهدايا لا ينشر أحداثًا ولا يرحّل لأي دفتر", "Organization / Accounting", "BOTH", "Verified", "Operational uncertainty", "Medium",
+  "خطوة محاسبية يدوية ضمنية.", "grep publish في apps/organization/src/modules/*/*.service.ts؛ expenses.service.ts:171 (تعليق مضلل)", "صرف.", "مصروفات خارج الدفاتر.", "Q-ORG-1.", "ORG-04(notes)")
+
+# ---------------- INT: integration / events ----------------
+f("INT-01", "معظم الأحداث تُكتب بشكل مزدوج (commit ثم publish مباشر) بلا outbox؛ outbox موجود في accounting (المدفوعات) وcrm (onboarding) وinventory (CURRENT فقط)", "Integration / Consistency", "BOTH", "Verified (code) / Inferred (failure)", "Potential risk", "High",
+  "تشمل الأحداث الحرجة: InvoiceGenerated، StockReserveRequested، GoodsReceived (BASELINE)، SupplierReturnCreated، RecallInitiated.", "out/notes web-events-audit.md §3.4 (عمود Publish mode)؛ [C] invoices.service.ts:543, 882, 1108, 1237؛ [B] apps/inventory/.../transactions.service.ts:93-108؛ packages/events/src/publisher.ts:241-270",
+  "تعطل Redpanda بين commit والنشر.", "خدمات غير متزامنة دائمًا؛ 500 للمستخدم بعد نجاح الكتابة.", "E-24: grep 'EVENT NOT DELIVERED' وDLQ publisher.", "WEBEVT-05, ACC-20, INVPRD-03, SCI-06")
+f("INT-02", "علامة dedup تُكتب بعد المعالج وخارج معاملته، ومعالجات متعددة الكتابة → تطبيق مزدوج عند إعادة المحاولة", "Integration / Idempotency", "BOTH", "Verified (mechanism) / Inferred (impact)", "Potential risk", "Medium",
+  "يؤثر على الائتمان والتحصيل والمرتجعات.", "packages/events/src/consumer.ts:290-316, 358-386؛ apps/sales/.../saga.orchestrator.ts:446-484؛ apps/inventory/.../reservation.listener.ts:361-400",
+  "فشل جزئي داخل المعالج.", "انحراف outstanding/collectedAmount/المخزون.", "transactional inbox.", "WEBEVT-09, SCI-07, INVPRD-12")
+f("INT-03", "الأحداث ذات التوقيع المرفوض تُسقط دون أثر دائم (لا DLQ ولا audit)", "Integration / Integrity", "BOTH", "Verified", "Potential risk", "Medium",
+  "تدوير EVENT_SIGNATURE_PEPPER غير متزامن يفقد كل أحداث خدمة.", "packages/events/src/consumer.ts:282, 333-351", "اختلاف السر.", "آثار أعمال مفقودة.", "E-24 grep 'REJECTED envelope'.", "WEBEVT-08")
+f("INT-04", "Redpanda عقدة واحدة، والمواضيع تُنشأ تلقائيًا بإعدادات افتراضية (partitions/retention/RF غير معرّفة)", "Integration / Platform", "BOTH", "Verified (absence) / Unknown (runtime)", "Operational uncertainty", "Medium",
+  "فقد القرص = فقد الأحداث غير المستهلكة وDLQ.", "docker-compose.production.yml (redpanda --smp 1)؛ publisher.ts:129, 233؛ [U] docx: Redpanda ≈2GiB RAM", "فقد القرص/إعادة التشغيل.", "فقد أحداث؛ ترتيب غير مضمون إذا partitions>1.", "E-25 rpk metadata.", "WEBEVT-11")
+f("INT-05", "CURRENT: المستهلكون يبدأون من 'latest' → ترتيب النشر قد يفقد أحداث inventory.stock.issued الجديدة", "Integration / Rollout", "CURRENT", "Inferred", "Operational uncertainty", "Medium",
+  "يعتمد على ترتيب نشر الخدمات.", "packages/events/src/consumer.ts:266؛ [C] saga-listener.service.ts:54,62", "نشر inventory قبل accounting.", "قيود COGS مفقودة.", "خطة rollout.", "WEBEVT-07", True)
+f("INT-06", "عقود الأحداث بلا إصدار، وانحراف payloads، و3 أحداث بلا منتج", "Integration / Contracts", "BOTH", "Verified", "Improvement", "Low",
+  "لا مستهلك يعتمد على الحقول المنحرفة حاليًا.", "packages/contracts/src/generated/events.ts:26-35, 890-901", "—", "كسر صامت مستقبلًا.", "—", "WEBEVT-10")
+f("INT-07", "المجدول: صف job_runs قد يبقى RUNNING للأبد عند timeout، والقفل يمنع التزامن فقط", "Integration / Scheduler", "BOTH", "Inferred", "Potential risk", "Low",
+  "نسخة واحدة لكل خدمة حاليًا.", "packages/scheduler/src/job-runner.ts:6-12, 43-87", "timeout.", "مراقبة مضللة.", "E-19 RUNNING > 1h.", "WEBEVT-19")
+
+# ---------------- WEB ----------------
+f("WEB-01", "تجميعات الـBFF مقصوصة بصمت عند 200 صف (قيمة المخزون، التعرض الائتماني، عدادات المهام)", "Web / Reporting", "BOTH", "Verified", "Potential risk", "Medium",
+  "لم يُفعّل غالبًا بعد لصغر البيانات.", "[C] apps/web/lib/inventory-value.ts:24-37؛ lib/credit-exposure.ts:74-77؛ apps/inventory/.../stock.service.ts:30؛ apps/crm/.../accounts.service.ts:119-120", ">200 رصيد أو عميل.", "أرقام إدارية ناقصة بلا تحذير.", "E-26 counts.", "WEBEVT-04")
+f("WEB-02", "CURRENT: صفحة general-ledger تستدعي fetch بلا Authorization → 401 دائمًا", "Web / Finance UI", "CURRENT", "Verified", "Confirmed defect", "Medium",
+  "شاشة قراءة غير قابلة للاستخدام.", "[C] apps/web/app/dashboard/general-ledger/page.tsx:6", "فتح الصفحة.", "—", "—", "WEBEVT-03", True)
+f("WEB-03", "شاشات التشغيل تغفل خدمات (health بلا organization، jobs بلا sales)", "Web / Ops", "BOTH", "Verified", "Confirmed defect", "Low",
+  "نقاط عمياء.", "[C] apps/web/app/api/system-health/route.ts:4-13؛ system-jobs/route.ts:11-15", "—", "—", "—", "WEBEVT-15")
+f("WEB-04", "رصد ضعيف: لا metrics، Sentry في الويب غالبًا غير فعال، JsonLogger غير مستخدم، لا تنبيهات ولا حدود موارد", "Web / Observability", "BOTH", "Verified (config) / Unknown (DSN)", "Operational uncertainty", "Medium",
+  "الأعطال تُكتشف من المستخدمين.", "لا instrumentation.ts؛ compose web بلا SENTRY_DSN؛ docs/runbooks/alerts-and-metrics.md:4", "أي عطل.", "زمن اكتشاف طويل.", "E-27.", "WEBEVT-12, DEPLOY-18")
+
+# ---------------- OPS ----------------
+f("OPS-01", "أدوات نشر CURRENT تفترض Neon (فحص nc من المضيف، snapshot عبر Neon API، parity 16) بينما الإنتاج nile-postgres محلي", "Operations / Deploy", "CURRENT", "Verified (code) / Inferred (effect)", "Confirmed defect", "High",
+  "نقطة الاستعادة 'الإلزامية' تحمي قاعدة خاطئة أو تمنع النشر.", "[C] scripts/deploy-production.sh:72-80, 94-110؛ docs/PRODUCTION-LAST-MILE.md؛ ci.yml (NEON_POSTGRES_MAJOR_VERSION==16)", "تشغيل النشر الآلي.", "فشل أو نشر بلا نسخة احتياطية فعلية.", "Q-OPS-1.", "DEPLOY-02", True)
+f("OPS-02", "--remove-orphans في النشر/الـrollback الآلي قد يحذف حاوية nile-postgres إن كانت تحمل label المشروع", "Operations / Deploy", "CURRENT", "Verified (code) / Inferred (label)", "Potential risk", "High",
+  "انقطاع كامل؛ والـrollback يكرره.", "[C] scripts/deploy-production.sh:140؛ rollback-production.sh:20؛ docs/OPERATIONS-RUNBOOK.md:9 يمنعه", "نشر CURRENT.", "حذف حاوية القاعدة (الـvolume يبقى).", "E-07: labels لـnile-postgres.", "DEPLOY-03", True)
+f("OPS-03", "pipeline الإصدار في CURRENT لا يكتمل (خطأ syntax في production-topology.test.cjs، اختبارات عقد قديمة، ترتيب خطوات، shallow clone)", "Operations / CI", "CURRENT", "Verified (node --check) / Inferred (d,e)", "Confirmed defect", "High",
+  "المسار الآلي الوحيد معطل فيعود النشر لمسارات يدوية.", "[C] scripts/production-topology.test.cjs:26 (SyntaxError — مُتحقق)؛ scripts/merge-launcher.test.js:105, 442؛ ci.yml (/tmp/immutable.env قبل إنشائه)", "أي push.", "لا release manifest.", "E-28 سجل GitHub Actions.", "DEPLOY-04", True)
+f("OPS-04", "لا نسخ احتياطي آلي فعال لقاعدة الإنتاج؛ دليل DR اصطناعي ويعتمد على Neon PITR", "Operations / DR", "BOTH", "Verified (repo) / Unknown (host cron)", "Potential risk", "High",
+  "قاعدة واحدة بتسع قواعد بلا نسخ مثبت خارج المضيف.", "[B]/[C] docs/PRODUCTION-READINESS-P0.md:104,181 (OPEN)؛ scripts/backup-nightly.sh:12, 47؛ docs/runbooks/disaster-recovery.md:23,53؛ docs/dr-evidence.json (synthetic)", "فقد المضيف/تلف.", "فقد بيانات.", "E-06.", "DEPLOY-07")
+f("OPS-05", "workflow النشر يخفي فشل النشر البعيد (`; rm -f` في نهاية أمر ssh)", "Operations / CI", "CURRENT", "Verified (تحقق مستقل)", "Confirmed defect", "Medium",
+  "نشر فاشل يظهر أخضر.", "[C] .github/workflows/production-deploy.yml:113", "نشر فاشل.", "ثقة زائفة.", "—", "DEPLOY-08", True)
+f("OPS-06", "smoke بعد النشر يستدعي compose بلا ملف env الإصدار → فشل interpolation → rollback يفشل بنفس الطريقة", "Operations / Deploy", "CURRENT", "Inferred", "Potential risk", "Medium",
+  "يعتمد على سلوك Compose.", "[C] scripts/production-http-smoke.sh:17", "أي نشر.", "rollback-failed.", "اختبار على staging.", "DEPLOY-09", True)
+f("OPS-07", "بوابة الاعتماد للإنتاج تعتمد على إعدادات GitHub environment غير مُصدَّرة؛ النشر يُطلق تلقائيًا بعد كل CI ناجح على main", "Operations / Governance", "CURRENT", "Unknown", "Question", "Medium",
+  "قد لا يوجد اعتماد بشري.", "[C] .github/workflows/production-deploy.yml:72-88", "—", "نشر غير مقصود.", "E-28.", "DEPLOY-10")
+f("OPS-08", "ملف compose التطويري هو الافتراضي في مجلد الإنتاج وبنفس اسم المشروع (منافذ PG 5432-5440 على كل الواجهات)", "Operations / Hygiene", "BOTH", "Verified (files) / Inferred (pg_accounting)", "Potential risk", "Medium",
+  "أمر compose بلا -f يطال مشروع الإنتاج.", "[C] docker-compose.yml (بلا name، volume pg_accounting)؛ [U] volume nile-pharma-erp_pg_accounting يتيم", "docker compose up بلا -f.", "إعادة إنشاء redpanda بإعدادات dev، قواعد مكشوفة.", "E-04.", "DEPLOY-11")
+f("OPS-09", "بوابة توافق migrations تقارن بالـpush السابق لا بالإنتاج ولا تكشف تعديل migrations مطبقة", "Operations / Migrations", "CURRENT", "Verified", "Potential risk", "Medium",
+  "سمحت بتعديل general_ledger 6 مرات.", "[C] scripts/validate-migration-compatibility.cjs:41-43؛ ci.yml (github.event.before)", "تعديل migration مطبقة.", "DDL المستودع ≠ الإنتاج.", "—", "DEPLOY-12")
+f("OPS-10", "الصور تعمل كـroot وتحمل شجرة البناء كاملة، والـCMD الافتراضي ينفذ prisma migrate deploy", "Operations / Containers", "BOTH", "Verified", "Potential risk", "Medium",
+  "تشغيل أي صورة خارج compose يرحّل قاعدة بياناتها (آلية محتملة لـaccounting-manual).", "[C] apps/*/Dockerfile (لا USER؛ CMD sh -c 'npx prisma migrate deploy && …')", "docker run/compose run.", "migrations غير مقصودة.", "E-04 أمر accounting-manual.", "DEPLOY-14")
+f("OPS-11", "حاويات متوقفة غير مفسرة: db-migrate (Exited 3) وaccounting-manual (Exited 1، تعريفها ليس في git)", "Operations / Runtime", "RUNTIME", "[U] user-reported", "Operational uncertainty", "Medium",
+  "دليل على تدخلات يدوية غير موثقة.", "[U] docx.txt:62-70, 800-806", "—", "—", "E-01, E-04.", "F-docx")
+f("OPS-12", "شبكة nile-internal ليست internal ولا موجودة في git؛ Postgres على شبكتين", "Operations / Network", "BOTH", "[U] / Verified (absence)", "Improvement", "Low",
+  "لا منفذ منشور لـPG.", "[U] docx.txt:572-581", "—", "لا عزل فعلي.", "E-07.", "DEPLOY-15")
+f("OPS-13", "عدم اتساق أسبقية DATABASE_URL بين التحقق وPrisma (7 خدمات تتحقق من <SVC>_DATABASE_URL وتتصل بـDATABASE_URL)", "Operations / Config", "BOTH", "Verified", "Potential risk", "Low",
+  "compose يمرر DATABASE_URL فقط.", "[C] apps/accounting/src/config/env.ts:57؛ apps/accounting/src/prisma/prisma.service.ts؛ scripts/deploy-migrations.cjs", "تشغيل يدوي بملف env مختلف.", "اتصال بقاعدة خاطئة.", "—", "DEPLOY-17")
+f("OPS-14", "CI يدفع صورًا مبنية من PRs إلى namespace سجل الإنتاج؛ SBOM غير مرفوع", "Operations / Supply chain", "CURRENT", "Verified", "Improvement", "Low", "manifest للـmain فقط.", "[C] ci.yml (permissions packages: write)", "—", "—", "—", "DEPLOY-19")
+
+# ---------------- GOV ----------------
+f("GOV-01", "لا يوجد baseline متطلبات معتمد وموقّع؛ القرارات تفريغ لإجابات المالك بلا اسم معتمِد، وعمود الحالة يكتبه المنفذ", "Governance / Requirements", "BOTH", "Verified", "Potential risk", "Medium",
+  "يعيق الاختبار والقبول.", "[C] docs/DECISIONS-2026-09-25-ar.md:3؛ docs/P1-BUSINESS-DECISION-PACK.md:422-430؛ docs/GO-LIVE-ACCEPTANCE-REPORT.md:7-8", "القبول.", "لا مرجع للحكم على الصحة.", "Q-GOV-1.", "REQDOC-01")
+f("GOV-02", "RTM و'Go-live gate' و'DR drill' السابقة لا تصلح كدليل (فحوص وجود ملفات/نصوص، أرقام متناقضة، أدلة ملفقة سُحبت)", "Governance / QA", "BOTH", "Verified", "Confirmed defect (documentation)", "Medium",
+  "ادعاءات 'VERIFIED 100%' مضللة.", "[C] docs/REQUIREMENTS-TRACEABILITY-MATRIX.md:22؛ scripts/go-live-acceptance-gate.cjs:60-62, 143-170؛ docs/DISASTER-RECOVERY-DRILL-REPORT.md:3-10", "—", "ثقة زائفة.", "إعادة بناء RTM.", "REQDOC-02/03/04")
+f("GOV-03", "قرارات 2026-09-28 (ترقيم PO، مطابقة الاستلام الفعلي، سقف الخصم، سداد الموردين، FX المحقق) موجودة في CURRENT فقط", "Governance / Business", "BASELINE", "Verified (static)", "Operational uncertainty", "Medium",
+  "ضوابط قررها المالك غير موجودة في النسخة المرجحة للإنتاج.", "[C] docs/P1-BUSINESS-DECISION-PACK.md:424-429؛ انظر ACC-19, SAL-04, ACC-10", "—", "—", "ARC-01.", "REQDOC-05")
+f("GOV-04", "قرارات متعارضة أو غير مسجلة (نموذج التسعير 09-25 مقابل 09-28؛ FX M2 مقابل المحقق؛ BD-2/BD-7 منفذة بلا قرار)", "Governance / Business", "BOTH", "Verified (text)", "Question", "Medium",
+  "يجب حسمها قبل أي إصلاح.", "[C] docs/DECISIONS-2026-09-25-ar.md:19-23؛ P1-BUSINESS-DECISION-PACK.md:198, 428-429", "—", "—", "Q-GOV-2..4.", "REQDOC-12/13")
+f("GOV-05", "متطلبات مقررة غير منفذة في أي نسخة: البونص، فرز التالف، مطالبات الموردين، حد ائتمان بالعلب، مخزن/خزنة المندوب", "Governance / Scope", "BOTH", "Verified (grep)", "Question", "Info",
+  "فجوة نطاق لا defect.", "REQ-14, REQ-17, REQ-18, REQ-20, REQ-42 في 10-Business-Process-Gap", "—", "عمل يدوي خارج النظام.", "Q-GOV.", "REQDOC-16")
+f("GOV-06", "وثائق قديمة ومعاملات تنظيمية مكتوبة في الكود بلا اعتماد (التأمينات 11%/18.75%، شرائح الضريبة، عتبة 100,000، خصم 12%)", "Governance / Documentation", "BOTH", "Verified", "Improvement", "Low",
+  "—", "[C] apps/organization/.../attendance.service.ts:221-243؛ orders.service.ts:20-21؛ docs (REQDOC-15)", "—", "—", "Q-GOV.", "REQDOC-15/17, DEPLOY-16")
