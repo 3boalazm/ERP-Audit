@@ -1,0 +1,26 @@
+erDiagram
+  AuditEvent {
+    String id PK
+    String eventId UK
+    String aggregateId
+    String actorId
+    String correlationId
+    String organizationId
+  }
+  ProcessedEvent {
+    String eventId PK
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  DeadLetterMessage {
+    String id PK
+    String eventId
+    String correlationId
+    enum status
+    DateTime createdAt
+  }

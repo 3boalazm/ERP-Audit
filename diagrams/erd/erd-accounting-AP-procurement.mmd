@@ -1,0 +1,132 @@
+erDiagram
+  GeneralPurchase {
+    String id PK
+    String purchaseNumber UK
+    Decimal amount
+    enum status
+    String createdById
+    String updatedById
+    DateTime createdAt
+  }
+  GeneralPurchaseRevision {
+    String id PK
+    String purchaseId FK
+    String actorId
+  }
+  SupplierLedgerEntry {
+    String id PK
+    String supplierId
+    Decimal amount
+    String refId
+  }
+  SupplierPayment {
+    String id PK
+    String idempotencyKey UK
+    String supplierId
+    String supplierInvoiceId
+    String financialAccountId
+    String actorId
+    DateTime createdAt
+  }
+  LandedCostVoucher {
+    String id PK
+    String voucherNumber UK
+    String vendorInvoiceId
+    String status
+    DateTime createdAt
+  }
+  LandedCostItem {
+    String id PK
+    String voucherId FK
+    String productId
+  }
+  PurchaseOrder {
+    String id PK
+    String poNumber UK
+    String supplierId
+    enum status
+    Decimal totalAmount
+    String createdById
+    DateTime createdAt
+  }
+  PurchaseOrderLine {
+    String id PK
+    String purchaseOrderId FK
+    String productId
+    Decimal totalAmount
+  }
+  PurchaseOrderReceipt {
+    String id PK
+    String eventId UK
+    String purchaseOrderId FK
+    String purchaseOrderLineId FK
+    String productId
+    String supplierId
+    String warehouseId
+    String batchId
+    String actorId
+  }
+  VendorInvoice {
+    String id PK
+    String supplierId
+    String purchaseOrderId FK
+    enum status
+    Decimal totalAmount
+    String createdById
+    DateTime createdAt
+  }
+  VendorInvoiceLine {
+    String id PK
+    String vendorInvoiceId FK
+    String productId
+    Decimal totalAmount
+  }
+  ThreeWayMatch {
+    String id PK
+    String vendorInvoiceId FK
+    String purchaseOrderId FK
+    enum status
+  }
+  ImportShipment {
+    String id PK
+    String shipmentNumber UK
+    String poId
+    String status
+    String forwarderSupplierId
+    String brokerSupplierId
+    String createdById
+    DateTime createdAt
+  }
+  ImportShipmentLine {
+    String id PK
+    String shipmentId FK
+    String poLineId
+    String productId
+  }
+  ShipmentDocument {
+    String id PK
+    String shipmentId FK
+    String number
+  }
+  RegulatoryClearance {
+    String id PK
+    String shipmentId FK
+  }
+  ShipmentStatusEvent {
+    String id PK
+    String shipmentId FK
+    String byId
+  }
+  GeneralPurchaseRevision }o--|| GeneralPurchase : "purchase"
+  LandedCostItem }o--|| LandedCostVoucher : "voucher"
+  PurchaseOrderLine }o--|| PurchaseOrder : "purchaseOrder"
+  PurchaseOrderReceipt }o--|| PurchaseOrder : "purchaseOrder"
+  PurchaseOrderReceipt }o--|| PurchaseOrderLine : "purchaseOrderLine"
+  VendorInvoice }o--o| PurchaseOrder : "purchaseOrder"
+  VendorInvoiceLine }o--|| VendorInvoice : "vendorInvoice"
+  ThreeWayMatch }o--|| VendorInvoice : "vendorInvoice"
+  ThreeWayMatch }o--o| PurchaseOrder : "purchaseOrder"
+  ImportShipmentLine }o--|| ImportShipment : "shipment"
+  ShipmentDocument }o--|| ImportShipment : "shipment"
+  RegulatoryClearance }o--|| ImportShipment : "shipment"
+  ShipmentStatusEvent }o--|| ImportShipment : "shipment"

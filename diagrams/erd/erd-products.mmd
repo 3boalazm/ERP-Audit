@@ -1,0 +1,107 @@
+erDiagram
+  ProductCategory {
+    String id PK
+  }
+  ProductBrand {
+    String id PK
+  }
+  ProductManufacturer {
+    String id PK
+  }
+  Product {
+    String id PK
+    String sku UK
+    String ndc UK
+    String gtin UK
+    String categoryId FK
+    String brandId FK
+    String manufacturerId FK
+    DateTime createdAt
+  }
+  UnitOfMeasure {
+    String id PK
+    enum code UK
+    DateTime createdAt
+  }
+  ProductUomConversion {
+    String id PK
+    String productId FK
+    DateTime createdAt
+  }
+  ProductIngredient {
+    String id PK
+    String productId FK
+    String name
+    Decimal amount
+  }
+  ProductTemperatureProfile {
+    String id PK
+    String productId FK
+  }
+  Batch {
+    String id PK
+    String productId FK
+    enum status
+    String recallId
+    String supplierId FK
+    DateTime createdAt
+  }
+  BatchQcRecord {
+    String id PK
+    String batchId FK
+    String signatureId
+    DateTime createdAt
+  }
+  Supplier {
+    String id PK
+    String code UK
+    DateTime createdAt
+  }
+  SerializedUnit {
+    String id PK
+    String batchId FK
+    String serialNumber UK
+    String parentId FK
+    DateTime createdAt
+  }
+  JobRun {
+    String id PK
+    String name
+    enum status
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  ProductPriceHistory {
+    String id PK
+    String productId FK
+    String actorId
+  }
+  PriceList {
+    String id PK
+    String code UK
+    DateTime createdAt
+  }
+  PriceListItem {
+    String id PK
+    String priceListId FK
+    String productId FK
+  }
+  Product }o--o| ProductCategory : "category"
+  Product }o--o| ProductBrand : "brand"
+  Product }o--o| ProductManufacturer : "manufacturer"
+  ProductUomConversion }o--|| Product : "product"
+  ProductIngredient }o--|| Product : "product"
+  ProductTemperatureProfile |o--o| Product : "product"
+  Batch }o--|| Product : "product"
+  Batch }o--o| Supplier : "supplier"
+  BatchQcRecord }o--|| Batch : "batch"
+  SerializedUnit }o--|| Batch : "batch"
+  SerializedUnit }o--o| SerializedUnit : "parent"
+  ProductPriceHistory }o--|| Product : "product"
+  PriceListItem }o--|| PriceList : "priceList"
+  PriceListItem }o--|| Product : "product"

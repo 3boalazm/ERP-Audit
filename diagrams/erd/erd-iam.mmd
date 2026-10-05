@@ -1,0 +1,73 @@
+erDiagram
+  User {
+    String id PK
+    String email UK
+    String phone UK
+    enum status
+    DateTime createdAt
+    String createdById
+  }
+  Role {
+    String id PK
+    String name UK
+    DateTime createdAt
+  }
+  Permission {
+    String id PK
+    String code UK
+  }
+  UserRole {
+    String userId FK
+    String roleId FK
+  }
+  RolePermission {
+    String roleId FK
+    String permissionId FK
+  }
+  Session {
+    String id PK
+    String userId FK
+    DateTime createdAt
+  }
+  AuditLog {
+    String id PK
+    String userId FK
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  ElectronicSignature {
+    String id PK
+    String userId FK
+    String entityId
+    DateTime createdAt
+  }
+  Notification {
+    String id PK
+    String recipientId FK
+    enum status
+    String providerMessageId
+    String createdById
+    DateTime createdAt
+  }
+  ProcessedEvent {
+    String eventId PK
+  }
+  SecurityPolicy {
+    String id PK
+  }
+  WorkspaceDraft {
+    String id PK
+    String ownerId
+  }
+  AiProviderSetting {
+    String id PK
+  }
+  UserRole }o--|| User : "user"
+  UserRole }o--|| Role : "role"
+  RolePermission }o--|| Role : "role"
+  RolePermission }o--|| Permission : "permission"
+  Session }o--|| User : "user"
+  AuditLog }o--o| User : "user"
+  ElectronicSignature }o--|| User : "user"
+  Notification }o--|| User : "recipient"

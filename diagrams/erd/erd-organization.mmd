@@ -1,0 +1,189 @@
+erDiagram
+  Department {
+    String id PK
+    String name UK
+    String parentId FK
+    String managerId
+    DateTime createdAt
+  }
+  JobTitle {
+    String id PK
+    String name
+    String departmentId FK
+  }
+  Region {
+    String id PK
+    String name
+  }
+  Branch {
+    String id PK
+    String name
+    String regionId FK
+    String gln UK
+    DateTime createdAt
+  }
+  Employee {
+    String id PK
+    String employeeCode UK
+    String departmentId FK
+    String jobTitleId FK
+    String branchId FK
+    String managerId FK
+    enum status
+    String linkedUserId UK
+    DateTime createdAt
+  }
+  AttendanceRecord {
+    String id PK
+    String employeeId FK
+    enum status
+    DateTime createdAt
+  }
+  LeaveBalance {
+    String id PK
+    String employeeId FK
+    DateTime createdAt
+  }
+  LeaveRequest {
+    String id PK
+    String employeeId FK
+    enum status
+    DateTime createdAt
+  }
+  EmploymentContract {
+    String id PK
+    String contractNumber UK
+    String employeeId FK
+    enum status
+    String jobTitleId FK
+    String departmentId FK
+    String previousContractId FK
+    DateTime createdAt
+  }
+  RepCoverage {
+    String id PK
+    String employeeId FK
+    DateTime createdAt
+  }
+  Territory {
+    String id PK
+    String name UK
+    String regionId FK
+    String assignedRepId
+    String gln UK
+    DateTime createdAt
+  }
+  CompensationProfile {
+    String id PK
+    String employeeId FK
+    DateTime createdAt
+  }
+  SalaryComponent {
+    String id PK
+    String code UK
+  }
+  EmployeeCompensationAssignment {
+    String id PK
+    String compensationProfileId FK
+    String salaryComponentId FK
+    Decimal amount
+  }
+  PayrollPeriod {
+    String id PK
+    String code UK
+    DateTime createdAt
+  }
+  PayrollRun {
+    String id PK
+    String periodId FK
+    enum status
+    DateTime createdAt
+  }
+  PayrollEntry {
+    String id PK
+    String payrollRunId FK
+    String employeeId FK
+    enum status
+    DateTime createdAt
+  }
+  PayrollAdjustment {
+    String id PK
+    String payrollEntryId FK
+    Decimal amount
+    String actorId
+    DateTime createdAt
+  }
+  PayrollApproval {
+    String id PK
+    String payrollRunId FK
+    String approverId
+  }
+  LookupTable {
+    String id PK
+    String code
+  }
+  ExpenseClaim {
+    String id PK
+    String claimNumber UK
+    String employeeId
+    String departmentId
+    Decimal totalAmount
+    enum status
+    String managerId
+    DateTime createdAt
+  }
+  ExpenseClaimLine {
+    String id PK
+    String claimId FK
+    Decimal amount
+  }
+  CustomerGift {
+    String id PK
+    String giftNumber UK
+    String employeeId
+    String departmentId
+    String accountId
+    Decimal totalAmount
+    enum status
+    String managerId
+    DateTime createdAt
+  }
+  CustomerGiftLine {
+    String id PK
+    String giftId FK
+    Decimal amount
+    String productId
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  Department }o--o| Department : "parent"
+  JobTitle }o--o| Department : "department"
+  Branch }o--o| Region : "region"
+  Employee }o--o| Department : "department"
+  Employee }o--o| JobTitle : "jobTitle"
+  Employee }o--o| Branch : "branch"
+  Employee }o--o| Employee : "manager"
+  AttendanceRecord }o--|| Employee : "employee"
+  LeaveBalance }o--|| Employee : "employee"
+  LeaveRequest }o--|| Employee : "employee"
+  EmploymentContract }o--|| Employee : "employee"
+  EmploymentContract }o--o| JobTitle : "jobTitle"
+  EmploymentContract }o--o| Department : "department"
+  EmploymentContract }o--o| EmploymentContract : "previousContract"
+  RepCoverage }o--|| Employee : "employee"
+  Territory }o--o| Region : "region"
+  CompensationProfile }o--|| Employee : "employee"
+  EmployeeCompensationAssignment }o--|| CompensationProfile : "compensationProfile"
+  EmployeeCompensationAssignment }o--|| SalaryComponent : "salaryComponent"
+  PayrollRun }o--|| PayrollPeriod : "period"
+  PayrollEntry }o--|| PayrollRun : "payrollRun"
+  PayrollEntry }o--|| Employee : "employee"
+  PayrollAdjustment }o--|| PayrollEntry : "payrollEntry"
+  PayrollApproval }o--|| PayrollRun : "payrollRun"
+  ExpenseClaimLine }o--|| ExpenseClaim : "claim"
+  CustomerGiftLine }o--|| CustomerGift : "gift"

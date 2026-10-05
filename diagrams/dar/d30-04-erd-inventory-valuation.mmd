@@ -1,0 +1,51 @@
+erDiagram
+  STOCK_BALANCES ||--o{ INVENTORY_TRANSACTIONS : "warehouse batch ownership"
+  INVENTORY_TRANSACTIONS ||--o{ COST_LAYER_CONSUMPTIONS : "NEW - every issue consumes"
+  INVENTORY_COST_LAYERS ||--o{ COST_LAYER_CONSUMPTIONS : "NEW"
+  INVENTORY_TRANSACTIONS ||--o| INVENTORY_TRANSACTIONS : "reversal_of_id UK NEW X1"
+  INVENTORY_TRANSACTIONS ||--o| INVENTORY_OUTBOX_EVENTS : "same tx"
+  INVENTORY_RESERVATIONS }o--|| STOCK_BALANCES : "reserve"
+  STOCK_BALANCES {
+    uuid id PK
+    uuid warehouse_id
+    uuid batch_id
+    string ownership
+    int on_hand "CHECK ge 0 NEW"
+    int reserved "CHECK 0 le reserved le on_hand NEW"
+  }
+  INVENTORY_TRANSACTIONS {
+    uuid id PK
+    string type "RECEIPT ISSUE TRANSFER ADJUST RETURN WRITE_OFF CONSIGN"
+    string idempotency_key UK "NEW X2 - receipt return adjust write-off"
+    uuid reversal_of_id "UK partial NEW X1"
+    string source_type "NEW"
+    string source_id "NEW"
+    decimal unit_cost "18,4"
+    decimal total_cost "18,2"
+    string correlation_id "NEW"
+  }
+  INVENTORY_COST_LAYERS {
+    uuid id PK
+    uuid batch_id
+    decimal unit_cost "18,4"
+    int qty_received
+    int qty_remaining "CHECK ge 0 - exists"
+  }
+  COST_LAYER_CONSUMPTIONS {
+    uuid id PK "NEW"
+    uuid transaction_id FK
+    uuid layer_id FK
+    int qty
+    decimal cost "18,2"
+  }
+  INVENTORY_RESERVATIONS {
+    uuid id PK
+    string order_id
+    uuid batch_id
+    int qty "CHECK gt 0 NEW"
+    bool is_released
+  }
+  INVENTORY_OUTBOX_EVENTS {
+    uuid id PK
+    string type "GoodsReceived StockIssued CHANGED plus StockValued for COGS"
+  }

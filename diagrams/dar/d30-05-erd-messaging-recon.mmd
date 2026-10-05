@@ -1,0 +1,53 @@
+erDiagram
+  OUTBOX_EVENTS }o--|| BUSINESS_TX : "written in same tx"
+  INBOX_MESSAGES ||--|| CONSUMER_EFFECT : "written in same tx CHANGED from processed_events after handler"
+  IDEMPOTENCY_KEYS ||--|| COMMAND_RESULT : "NEW where no business key exists"
+  RECONCILIATION_RUNS ||--o{ RECONCILIATION_BREAKS : "NEW"
+  OUTBOX_EVENTS {
+    uuid id PK
+    string aggregate_type
+    string aggregate_id
+    string event_type
+    int schema_version
+    jsonb payload
+    string correlation_id
+    timestamptz created_at
+    timestamptz published_at "null until relayed"
+    int attempts
+  }
+  INBOX_MESSAGES {
+    uuid event_id PK
+    string consumer "PK with event_id"
+    timestamptz processed_at
+  }
+  IDEMPOTENCY_KEYS {
+    string key PK
+    string request_hash
+    string result_ref
+    timestamptz expires_at
+  }
+  RECONCILIATION_RUNS {
+    uuid id PK
+    string kind "CREDIT_vs_AR STOCK_vs_GL AP_vs_GL TREASURY_vs_GL SALES_vs_INVOICES PRICES_vs_CATALOGUE"
+    date as_of
+    string status
+    int breaks_count
+  }
+  RECONCILIATION_BREAKS {
+    uuid id PK
+    uuid run_id FK
+    string entity_ref
+    decimal expected
+    decimal actual
+    string resolution "OPEN EXPLAINED CORRECTED"
+    uuid resolved_by
+  }
+  BUSINESS_TX {
+    string any_state_change
+  }
+  CONSUMER_EFFECT {
+    string any_effect
+  }
+  COMMAND_RESULT {
+    string created_document
+  }

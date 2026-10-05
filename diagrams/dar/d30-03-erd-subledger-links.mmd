@@ -1,0 +1,52 @@
+erDiagram
+  INVOICES ||--o{ JOURNAL_ENTRIES : "source INVOICE"
+  CREDIT_NOTES ||--o{ JOURNAL_ENTRIES : "source CREDIT_NOTE"
+  PAYMENTS ||--o{ JOURNAL_ENTRIES : "source PAYMENT and PAYMENT_REVERSAL"
+  PAYMENTS ||--o{ FINANCIAL_ACCOUNT_ENTRIES : "CHANGED - every receipt clearance and reversal hits treasury"
+  VENDOR_INVOICES ||--o{ JOURNAL_ENTRIES : "source VENDOR_INVOICE"
+  SUPPLIER_PAYMENTS ||--o{ JOURNAL_ENTRIES : "source SUPPLIER_PAYMENT - one implementation"
+  SUPPLIER_PAYMENTS ||--o{ FINANCIAL_ACCOUNT_ENTRIES : "outflow"
+  FINANCIAL_ACCOUNT_ENTRIES ||--o{ JOURNAL_ENTRIES : "source TREASURY"
+  GL_POSTING_INBOX ||--o| JOURNAL_ENTRIES : "NEW - remote sub-ledger events COGS PAYROLL EXPENSE INCENTIVE"
+  SUBLEDGER_CONTROL_MAP }o--|| GL_ACCOUNTS : "NEW"
+  INVOICES {
+    uuid id PK
+    string invoice_number UK "CHANGED gapless sequence"
+    string status "UNPAID PARTIAL PAID DEFERRED CANCELLED CREDITED"
+    decimal total "CHECK paid plus credited le total NEW"
+    string currency
+  }
+  PAYMENTS {
+    uuid id PK
+    string idempotency_key UK
+    bool reversed
+    uuid reversal_of_id "NEW UK"
+    string currency "CHECK equals invoice or treasury currency NEW"
+  }
+  FINANCIAL_ACCOUNT_ENTRIES {
+    uuid id PK
+    string idempotency_key UK
+    string source_type
+    string source_id
+    decimal amount
+  }
+  GL_POSTING_INBOX {
+    uuid event_id PK "NEW"
+    string source_service
+    string source_type
+    string source_id
+    string status "RECEIVED POSTED FAILED"
+    uuid journal_entry_id
+  }
+  SUBLEDGER_CONTROL_MAP {
+    string subledger PK "AR AP TREASURY INVENTORY PAYROLL EXPENSES INCENTIVES"
+    uuid control_account_id FK
+  }
+  JOURNAL_ENTRIES {
+    uuid id PK
+    string source_type
+    string source_id
+  }
+  GL_ACCOUNTS {
+    uuid id PK
+  }

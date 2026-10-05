@@ -1,0 +1,170 @@
+erDiagram
+  SalesOrder {
+    String id PK
+    String orderNumber UK
+    String accountId
+    String repId
+    enum status
+    String shippingRateId
+    String correlationId
+    String visitId UK
+    String idempotencyKey UK
+    DateTime createdAt
+  }
+  SalesOrderLine {
+    String id PK
+    String orderId FK
+    String productId
+    String requestedBatchId
+  }
+  OrderLineAllocation {
+    String id PK
+    String orderLineId FK
+    String batchId
+    String warehouseId
+  }
+  SalesReturn {
+    String id PK
+    String orderId FK
+    String accountId
+    String repId
+    String actorId
+    enum status
+    String decidedById
+    DateTime createdAt
+  }
+  SalesReturnLine {
+    String id PK
+    String returnId FK
+    String orderLineId
+    String productId
+    String batchId
+    String warehouseId
+  }
+  OrderApproval {
+    String id PK
+    String orderId FK
+    String approverId
+  }
+  PricingRule {
+    String id PK
+    String code UK
+    DateTime createdAt
+  }
+  DiscountApprovalLevel {
+    String id PK
+  }
+  Promotion {
+    String id PK
+    String code UK
+    String scopeId
+    String giftProductId
+    DateTime createdAt
+  }
+  PromotionRedemption {
+    String id PK
+    String promotionId FK
+    String orderId
+    String customerId
+  }
+  PriceRule {
+    String id PK
+    String scopeId
+    DateTime createdAt
+  }
+  PriceRuleSetting {
+    String id PK
+  }
+  OrderSaga {
+    String id PK
+    String orderId FK
+    String correlationId
+  }
+  ProcessedEvent {
+    String eventId PK
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  PendingPayment {
+    String id PK
+    String orderId
+    String eventId UK
+    String accountId
+    Decimal amount
+    DateTime createdAt
+  }
+  PendingCreditApplication {
+    String id PK
+    String accountId
+    Decimal amount
+    String status
+    DateTime createdAt
+  }
+  AccountCredit {
+    String accountId PK
+  }
+  ProductPrice {
+    String id PK
+    String productId UK
+  }
+  BlockedBatch {
+    String batchId PK
+    String recallId
+  }
+  OrderRecallHold {
+    String id PK
+    String orderId
+    String batchId
+    String recallId
+  }
+  ShippingZone {
+    String id PK
+    String code UK
+    DateTime createdAt
+  }
+  ShippingRate {
+    String id PK
+    String zoneId FK
+    DateTime createdAt
+  }
+  ShippingZoneArea {
+    String id PK
+    String zoneId FK
+    String normalizedKey UK
+    DateTime createdAt
+  }
+  OrderShipment {
+    String id PK
+    String orderId FK
+    enum status
+    DateTime createdAt
+  }
+  ShipmentLeg {
+    String id PK
+    String shipmentId FK
+    enum status
+    String invoiceId
+    String paymentId
+    DateTime createdAt
+  }
+  JobRun {
+    String id PK
+    String name
+    enum status
+  }
+  SalesOrderLine }o--|| SalesOrder : "order"
+  OrderLineAllocation }o--|| SalesOrderLine : "orderLine"
+  SalesReturn }o--|| SalesOrder : "order"
+  SalesReturnLine }o--|| SalesReturn : "return"
+  OrderApproval |o--o| SalesOrder : "order"
+  PromotionRedemption }o--|| Promotion : "promotion"
+  OrderSaga |o--o| SalesOrder : "order"
+  ShippingRate }o--|| ShippingZone : "zone"
+  ShippingZoneArea }o--|| ShippingZone : "zone"
+  OrderShipment |o--o| SalesOrder : "order"
+  ShipmentLeg }o--|| OrderShipment : "shipment"

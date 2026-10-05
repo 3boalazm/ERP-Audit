@@ -1,0 +1,60 @@
+erDiagram
+  ACCOUNTING_PERIODS ||--o{ JOURNAL_ENTRIES : "period_id FK CHANGED required"
+  GL_ACCOUNTS ||--o{ JOURNAL_LINES : "account_id FK"
+  GL_ACCOUNTS ||--o{ GL_ACCOUNTS : "parent"
+  POSTING_RULES }o--|| GL_ACCOUNTS : "debit and credit accounts"
+  JOURNAL_ENTRIES ||--|{ JOURNAL_LINES : "lines balanced"
+  JOURNAL_ENTRIES |o--o| JOURNAL_ENTRIES : "reversal_of_id UK"
+  POSTING_RULES ||--o{ JOURNAL_ENTRIES : "rule_id NEW"
+  ACCOUNTING_PERIODS {
+    uuid id PK
+    int fiscal_year
+    int period_month
+    string status "OPEN SOFT_CLOSED CLOSED - CHECK NEW"
+    timestamptz closed_at
+    uuid closed_by
+  }
+  GL_ACCOUNTS {
+    uuid id PK
+    string code UK
+    string type "ASSET LIABILITY EQUITY INCOME EXPENSE"
+    bool is_control "NEW - AR AP inventory treasury payroll control"
+    string subledger "NEW - which sub-ledger feeds it"
+    bool is_postable
+  }
+  POSTING_RULES {
+    uuid id PK
+    string source_type "NEW - INVOICE PAYMENT GRN COGS PAYROLL ..."
+    string event_type
+    int version
+    date valid_from
+    string status "DRAFT APPROVED RETIRED"
+    uuid approved_by
+  }
+  JOURNAL_ENTRIES {
+    uuid id PK
+    string entry_number UK "gapless per series and year"
+    string status "DRAFT SUBMITTED APPROVED POSTED REVERSED - one enum CHANGED"
+    date posting_date
+    uuid period_id FK
+    string source_service "NEW"
+    string source_type
+    string source_id "UK with source_type and posting_seq CHANGED - one key only"
+    uuid reversal_of_id FK
+    string currency
+    string correlation_id "NEW"
+    uuid created_by
+    uuid approved_by "SoD - must differ from created_by"
+  }
+  JOURNAL_LINES {
+    uuid id PK
+    uuid journal_entry_id FK
+    uuid account_id FK
+    decimal debit "18,2 CHECK ge 0 - one scale CHANGED"
+    decimal credit "18,2 CHECK ge 0 and not both"
+    string currency
+    decimal fx_rate "18,8 one precision CHANGED"
+    decimal base_debit "18,2"
+    decimal base_credit "18,2"
+    string subledger_ref "NEW - party or batch or employee"
+  }

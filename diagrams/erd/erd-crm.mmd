@@ -1,0 +1,158 @@
+erDiagram
+  Account {
+    String id PK
+    String code UK
+    String nameAr UK
+    String territoryId
+    String repId
+    String priceListId
+    DateTime createdAt
+  }
+  VisitPlan {
+    String id PK
+    String planNumber UK
+    String repId
+    String territoryId
+    enum status
+    DateTime createdAt
+  }
+  Visit {
+    String addressId FK
+    String id PK
+    String accountId FK
+    String repId
+    String planId FK
+    enum status
+    String orderId
+    String rescheduledFromId FK
+    String recurrenceKey UK
+  }
+  CustomerAssignment {
+    String id PK
+    String accountId FK
+    String repId
+    String territoryId
+    DateTime createdAt
+  }
+  FollowUp {
+    String id PK
+    String accountId FK
+    String visitId FK
+    enum status
+    DateTime createdAt
+  }
+  CustomerInteraction {
+    String id PK
+    String accountId FK
+    String visitId FK
+    String repId
+    DateTime createdAt
+  }
+  VisitProductDiscussion {
+    String id PK
+    String visitId FK
+    String productId
+  }
+  RepTarget {
+    String id PK
+    String repId
+    String territoryId
+    DateTime createdAt
+  }
+  Lead {
+    String id PK
+    String accountId FK
+    enum status
+    String repId
+    String convertedById
+    DateTime createdAt
+  }
+  SupportTicket {
+    String id PK
+    String ticketNumber UK
+    String accountId FK
+    String visitId FK
+    String customCategoryId FK
+    enum status
+    String assignedAgentId
+    DateTime createdAt
+  }
+  CustomerContact {
+    String id PK
+    String accountId FK
+    String name
+  }
+  SupportCategory {
+    String id PK
+    String name UK
+  }
+  TicketParticipant {
+    String id PK
+    String ticketId FK
+    String userId
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  CustomerAddress {
+    String id PK
+    String accountId FK
+    DateTime createdAt
+  }
+  CustomerNote {
+    String id PK
+    String accountId FK
+    DateTime createdAt
+  }
+  CustomerCreationRequest {
+    String id PK
+    String actorId
+    String accountId FK
+    DateTime createdAt
+  }
+  CustomerEventOutbox {
+    String id PK
+    DateTime createdAt
+  }
+  VisitRescheduleRequest {
+    String id PK
+    String visitId FK
+    String status
+    String replacementId FK
+    DateTime createdAt
+  }
+  FieldProposal {
+    String id PK
+    String visitId FK
+    String accountId FK
+    String status
+    String convertedId
+    DateTime createdAt
+  }
+  Visit }o--o| CustomerAddress : "registeredAddress"
+  Visit }o--|| Account : "account"
+  Visit }o--o| VisitPlan : "plan"
+  Visit |o--o| Visit : "rescheduledFrom"
+  CustomerAssignment }o--|| Account : "account"
+  FollowUp }o--|| Account : "account"
+  FollowUp }o--o| Visit : "visit"
+  CustomerInteraction }o--|| Account : "account"
+  CustomerInteraction }o--o| Visit : "visit"
+  VisitProductDiscussion }o--|| Visit : "visit"
+  Lead }o--o| Account : "account"
+  SupportTicket }o--|| Account : "account"
+  SupportTicket }o--o| Visit : "visit"
+  SupportTicket }o--o| SupportCategory : "customCategory"
+  CustomerContact }o--|| Account : "account"
+  TicketParticipant }o--|| SupportTicket : "ticket"
+  CustomerAddress }o--|| Account : "account"
+  CustomerNote }o--|| Account : "account"
+  CustomerCreationRequest |o--o| Account : "account"
+  VisitRescheduleRequest |o--o| Visit : "originalVisit"
+  VisitRescheduleRequest |o--o| Visit : "replacementVisit"
+  FieldProposal }o--|| Visit : "visit"
+  FieldProposal }o--|| Account : "account"

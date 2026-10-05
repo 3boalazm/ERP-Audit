@@ -1,0 +1,107 @@
+erDiagram
+  Currency {
+    enum code PK
+  }
+  ExchangeRate {
+    String id PK
+  }
+  JournalEntry {
+    String id PK
+    String journalNumber UK
+    String fiscalPeriodId
+    enum status
+    String reversalOfId UK
+    String sourceId
+    DateTime createdAt
+  }
+  JournalLine {
+    String id PK
+    String journalEntryId FK
+    String accountId
+  }
+  Account {
+    String id PK
+    String code UK
+    String parentId FK
+    DateTime createdAt
+  }
+  FiscalPeriod {
+    String id PK
+    String code UK
+    enum status
+    String closingJournalId
+    DateTime createdAt
+  }
+  FixedAsset {
+    String id PK
+    String assetCode UK
+    enum status
+    DateTime createdAt
+  }
+  DepreciationEntry {
+    String id PK
+    String assetId FK
+    Decimal amount
+    String journalEntryId
+  }
+  TaxEntry {
+    String id PK
+    String invoiceId
+    String partyId
+    DateTime createdAt
+  }
+  FxSnapshot {
+    String id PK
+    String refId
+    String rateId
+    String actorId
+    DateTime createdAt
+  }
+  FinancialAccount {
+    String id PK
+    DateTime createdAt
+  }
+  FinancialAccountEntry {
+    String id PK
+    String accountId FK
+    Decimal amount
+    String idempotencyKey UK
+    String actorId
+    DateTime createdAt
+  }
+  FinancialAccountReconciliation {
+    String id PK
+    String accountId FK
+    String countedById
+  }
+  JournalEntryWorkflow {
+    String id PK
+    String entryNumber UK
+    String sourceId
+    String status
+    String createdById
+    String submittedById
+    String approvedById
+    String rejectedById
+    String postedJournalId
+    DateTime createdAt
+  }
+  BankStatement {
+    String id PK
+    String financialAccountId
+    String status
+    DateTime createdAt
+  }
+  BankStatementLine {
+    String id PK
+    String statementId FK
+    Decimal amount
+    String matchedSourceId
+    DateTime createdAt
+  }
+  JournalLine }o--|| JournalEntry : "journalEntry"
+  Account }o--o| Account : "parent"
+  DepreciationEntry }o--|| FixedAsset : "asset"
+  FinancialAccountEntry }o--|| FinancialAccount : "account"
+  FinancialAccountReconciliation }o--|| FinancialAccount : "account"
+  BankStatementLine }o--|| BankStatement : "statement"

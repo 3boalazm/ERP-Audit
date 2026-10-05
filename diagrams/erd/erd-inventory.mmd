@@ -1,0 +1,104 @@
+erDiagram
+  Warehouse {
+    String id PK
+    String code UK
+    String gln UK
+  }
+  BinLocation {
+    String id PK
+    String warehouseId FK
+    String code
+  }
+  StockBalance {
+    String id PK
+    String warehouseId FK
+    String productId
+    String batchId
+  }
+  InventoryCostLayer {
+    String id PK
+    String productId
+    String batchId
+    String warehouseId
+    String sourceTransactionId
+  }
+  InventoryTransaction {
+    String id PK
+    String productId
+    String batchId
+    String warehouseId
+    String customerId
+    String supplierId
+    String correlationId
+    String actorId
+    DateTime createdAt
+    String reversalOfId
+  }
+  BlockedBatch {
+    String id PK
+    String batchId UK
+    String recallId
+  }
+  AdjustmentRequest {
+    String id PK
+    String warehouseId
+    String productId
+    String batchId
+    enum status
+    String resultingTransactionId
+  }
+  InventoryReservation {
+    String id PK
+    String orderId
+    String productId
+    String batchId
+    String warehouseId
+    String customerId
+    DateTime createdAt
+  }
+  ProcessedEvent {
+    String eventId PK
+  }
+  Transfer {
+    String id PK
+    String sourceWarehouseId FK
+    String destWarehouseId FK
+    String productId
+    String batchId
+    String idempotencyKey UK
+    String actorId
+    DateTime createdAt
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  ConsignmentAgreement {
+    String id PK
+    String customerId
+  }
+  ConsignmentStock {
+    String id PK
+    String agreementId FK
+    String customerId
+    String productId
+    String batchId
+  }
+  JobRun {
+    String id PK
+    String name
+    enum status
+  }
+  InventoryOutboxEvent {
+    String id PK
+    String eventId UK
+    DateTime createdAt
+  }
+  BinLocation }o--|| Warehouse : "warehouse"
+  StockBalance }o--|| Warehouse : "warehouse"
+  Transfer }o--|| Warehouse : "sourceWarehouse"
+  Transfer }o--|| Warehouse : "destWarehouse"
+  ConsignmentStock }o--|| ConsignmentAgreement : "agreement"

@@ -1,0 +1,24 @@
+erDiagram
+  ProcessedEvent {
+    String eventId PK
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  DocumentSequence {
+    String name
+  }
+  JobRun {
+    String id PK
+    String name
+    enum status
+  }
+  OutboxEvent {
+    String id PK
+    DateTime createdAt
+    String leaseId
+  }

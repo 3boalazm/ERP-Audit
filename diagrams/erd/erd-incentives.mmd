@@ -1,0 +1,33 @@
+erDiagram
+  RuleSet {
+    String id PK
+    Int version UK
+    DateTime createdAt
+  }
+  ProcessedEvent {
+    String eventId PK
+    String ledgerId
+  }
+  IncentiveLedger {
+    String id PK
+    String repId
+    String sourceEventId UK
+    String paymentId
+    String orderId
+    String accountId
+    Int ruleSetVersion FK
+    enum status
+    DateTime createdAt
+  }
+  RepScore {
+    String id PK
+    String repId
+  }
+  AuditLog {
+    String id PK
+    String userId
+    String entityId
+    String correlationId
+    DateTime createdAt
+  }
+  IncentiveLedger }o--|| RuleSet : "ruleSet"

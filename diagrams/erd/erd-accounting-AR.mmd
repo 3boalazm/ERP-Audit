@@ -1,0 +1,92 @@
+erDiagram
+  Invoice {
+    String id PK
+    String invoiceNumber UK
+    String orderId UK
+    String idempotencyKey UK
+    String accountId
+    String repId
+    String shippingRateId
+    enum status
+    String correlationId
+    String reissuedFromId FK
+  }
+  InvoiceLine {
+    String id PK
+    String invoiceId FK
+    String productId
+    String batchId
+  }
+  InvoiceLineBatch {
+    String id PK
+    String invoiceLineId FK
+    String batchId
+  }
+  FinancialInstrument {
+    String id PK
+    enum status
+    String paymentId FK
+    String accountId
+    String invoiceId FK
+    Decimal amount
+    String replacesId FK
+    String replacedById FK
+    String actorId
+    DateTime createdAt
+  }
+  Payment {
+    String id PK
+    String idempotencyKey UK
+    String invoiceId FK
+    String accountId
+    String orderId
+    Decimal amount
+    String financialAccountId FK
+    String actorId
+    String sourceId
+  }
+  LedgerEntry {
+    String id PK
+    String accountId
+    Decimal amount
+    String refId
+  }
+  CollectionMetric {
+    String id PK
+    String repId
+  }
+  CancelledOrder {
+    String orderId PK
+    String eventId
+  }
+  CreditNote {
+    String id PK
+    String number UK
+    String returnId UK
+    String invoiceId
+    String accountId
+    enum status
+    String issuedById
+  }
+  FieldCollectionPosting {
+    String id PK
+    String actorId
+    DateTime createdAt
+  }
+  PaymentAllocation {
+    String id PK
+    String paymentId FK
+    String invoiceId FK
+    Decimal amount
+    DateTime createdAt
+  }
+  Invoice |o--o| Invoice : "reissuedFrom"
+  InvoiceLine }o--|| Invoice : "invoice"
+  InvoiceLineBatch }o--|| InvoiceLine : "invoiceLine"
+  FinancialInstrument |o--o| Payment : "payment"
+  FinancialInstrument }o--o| Invoice : "invoice"
+  FinancialInstrument }o--o| FinancialInstrument : "replacementOf"
+  FinancialInstrument |o--o| FinancialInstrument : "replacement"
+  Payment }o--o| Invoice : "invoice"
+  PaymentAllocation }o--|| Payment : "payment"
+  PaymentAllocation }o--|| Invoice : "invoice"

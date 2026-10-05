@@ -1,0 +1,47 @@
+flowchart LR
+  classDef new fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px
+  classDef chg fill:#fff8e1,stroke:#f9a825,stroke-width:2px
+  classDef keep fill:#eceff1,stroke:#607d8b
+  subgraph PG["PostgreSQL instance - one cluster, 9 databases, DB-per-service kept"]
+    direction TB
+    subgraph MD["Master data SoR"]
+      IAM[(nile_iam users roles)]:::keep
+      ORG[(nile_organization employees payroll expenses)]:::chg
+      PRD[(nile_products products batches suppliers prices)]:::chg
+      CRM[(nile_crm customers addresses visits)]:::keep
+    end
+    subgraph OP["Operational SoR"]
+      SAL[(nile_sales orders returns credit projection)]:::chg
+      INV[(nile_inventory stock movements cost layers)]:::chg
+    end
+    subgraph FIN["Finance SoR"]
+      ACC[(nile_accounting AR AP treasury tax FA plus ONE unified GL)]:::chg
+      INC[(nile_incentives incentive ledger)]:::chg
+    end
+    AUD[(nile_audit central business audit)]:::keep
+    RPT[(reporting read model - phase 2 only if measured)]:::new
+  end
+  OB["Outbox table in every writing DB - same tx as state change"]:::new
+  BUS["Redpanda topics"]:::keep
+  IB["Inbox table per consumer - marker in same tx as effect"]:::new
+  REC["Reconciliation runs and breaks - credit vs AR, stock vs GL, AP vs GL, treasury vs GL"]:::new
+  POST["Posting rules engine in accounting - consumes sub-ledger events and posts to GL"]:::new
+  BK["Off-host base backup plus WAL archive PITR - restore drills - RPO RTO approved"]:::new
+  ROLES["Per-DB roles owner migrator app DML read-only reporting"]:::new
+  SAL --> OB
+  INV --> OB
+  PRD --> OB
+  ACC --> OB
+  ORG --> OB
+  INC --> OB
+  OB --> BUS --> IB
+  IB --> POST --> ACC
+  IB --> SAL
+  IB --> INV
+  IB --> AUD
+  IB -.-> RPT
+  REC -.reads via read-only role.-> SAL
+  REC -.-> ACC
+  REC -.-> INV
+  PG --- BK
+  PG --- ROLES

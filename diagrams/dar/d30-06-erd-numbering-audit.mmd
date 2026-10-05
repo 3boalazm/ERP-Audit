@@ -1,0 +1,45 @@
+erDiagram
+  DOCUMENT_SEQUENCES ||--o{ BUSINESS_DOCUMENT : "number allocated inside the issuing tx"
+  CURRENCIES ||--o{ EXCHANGE_RATES : "one precision"
+  BUSINESS_DOCUMENT }o--|| CURRENCIES : "currency required on every financial doc NEW for orders credit"
+  BUSINESS_DOCUMENT ||--o{ AUDIT_LOGS : "change rows in same tx CHANGED"
+  AUDIT_LOGS }o--|| RETENTION_POLICIES : "NEW"
+  DOCUMENT_SEQUENCES {
+    string series PK "INV SO CR GP PO JE GRN LC EXP GFT AST EMP"
+    int year PK
+    bigint next_value
+    string format
+  }
+  CURRENCIES {
+    string code PK
+    int minor_units
+  }
+  EXCHANGE_RATES {
+    string currency FK
+    date rate_date
+    decimal rate_to_base "18,8 CHANGED one precision"
+    string source
+  }
+  BUSINESS_DOCUMENT {
+    uuid id PK
+    string number UK
+    string currency
+    string status
+  }
+  AUDIT_LOGS {
+    uuid id PK
+    string entity
+    string entity_id
+    string action
+    jsonb before_redacted "CHANGED - salary IBAN phone redacted"
+    jsonb after_redacted
+    uuid actor_id
+    string correlation_id
+    timestamptz at
+  }
+  RETENTION_POLICIES {
+    string table_class PK "NEW - audit outbox inbox sessions job_runs DLQ PII"
+    int keep_months
+    string action "ARCHIVE PURGE ANONYMIZE"
+    string approved_by
+  }
