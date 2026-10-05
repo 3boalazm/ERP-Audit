@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> NEW
+  NEW --> QUALIFIED
+  NEW --> LOST: reason required (cur)
+  QUALIFIED --> NEW
+  QUALIFIED --> CONVERTED: requires existing accountId
+  QUALIFIED --> LOST
+  LOST --> NEW: CURRENT only
+  CONVERTED --> [*]

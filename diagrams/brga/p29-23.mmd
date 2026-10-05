@@ -1,0 +1,19 @@
+flowchart TD
+  A["Setup: create financial account (CASH/BANK/E_WALLET/INSTAPAY)"] --> B["Opening balance row (no approval)"]
+  C["Collection recorded by user"] --> D{"Method"}
+  D -- "CASH / TRANSFER / E_WALLET / INSTAPAY" --> E["Resolve account by method or default"]
+  E --> F["Payment + customer ledger + PAYMENT_IN entry (one tx)"]
+  E -- "non-cash with no default" --> F2["Payment saved with NO account"]
+  D -- "CHECK" --> G["Payment saved, AR reduced, no treasury entry"]
+  G --> H{"Check status update"}
+  H -- "DEPOSITED / CLEARED" --> H1["Label only - no bank entry, no audit"]
+  H -- "BOUNCED" --> H2["Auto reverse payment + AR + exposure, notify"]
+  F --> R{"Payment reversed?"}
+  R -- "yes" --> R1["AR restored, treasury NOT reversed"]
+  M["Manual entry: deposit / withdrawal / expense / adjustment"] --> N["Entry + balance (SERIALIZABLE), no voucher, no approval, no audit"]
+  T["Transfer between accounts"] --> T1["Two legs, one transferRef"]
+  K["Cash count"] --> K1["Stores system vs actual difference, balance unchanged"]
+  K1 -. "separate manual decision" .-> N
+  X["Supplier payment / expense paid / payroll paid"] --> X1["Outside treasury (manual withdrawal if any) - QUESTION Q-AS-3"]
+  Y["Rep collects cash in field"] --> Y1["Counted in default main cash box immediately - QUESTION Q-AS-1"]
+  Z["Management position"] --> Z1["Company spreadsheet treasury summary (B3-0300)"]

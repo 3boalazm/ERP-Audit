@@ -1,0 +1,70 @@
+flowchart TD
+  subgraph LEAD["Lead (CRM leads)"]
+    L1["Rep creates Lead NEW"] --> L2{"Qualify?"}
+    L2 -->|yes| L3["QUALIFIED"]
+    L2 -->|no| L4["LOST (C: reason required, can reopen)"]
+    L3 --> L5{"Existing Account linked?"}
+    L5 -->|no| L6["Blocked: 400 - must pick existing customer"]
+    L5 -->|yes| L7["CONVERTED (link only, no account created)"]
+  end
+
+  subgraph MASTER["Customer master"]
+    Q1["Q: Who classifies legacy customers and the 65 without rep code?"] --> M0
+    M0["Legacy ledger + review CSVs (scripts, offline)"] --> M1["import-identities.cjs: MD26 code, rep null, balances 0"]
+    M2["Onboarding form POST /accounts"] --> M3["IAM check: rep active"]
+    M3 -->|IAM down| M3x["503 - not created"]
+    M3 --> M4["One tx: Account(code by sequence) + PRIMARY assignment + primary address + note + audit + outbox"]
+    M4 --> M5["Outbox relay publishes AccountCreated -> Accounting"]
+    M6["CSV import /accounts/import(/file)"] --> M7["type default PHARMACY, repId = importer, no assignment, no event"]
+    M8["Profile PATCH /profile (version lock)"] --> M9["Address, lat/lng, contacts, audit"]
+    M10["Reassign PATCH/bulk with repId"] --> M11["Close PRIMARY, new PRIMARY, audit old repId"]
+    M12["Field-sales POST /assignments"] --> M13["PRIMARY/BACKUP with visitEveryDays (no domain audit)"]
+    Q2["Q: How are C (direct delivery) and R (shipping) customers owned today?"] --> M2
+  end
+
+  subgraph PLAN["Planning"]
+    P1["Manager creates daily plan DRAFT (stops: customer, time, registered address snapshot)"] --> P2["Checks: same Cairo day, no duplicate customer, no time overlap"]
+    P2 --> P3["PUBLISHED"]
+    P4["Manager: next-visit from assignment frequency (manual, idempotent)"] --> V0
+    Q3["Q: Is a weekly route agreed outside the system (paper/WhatsApp)?"] --> P1
+  end
+
+  subgraph VISIT["Visit execution (my-day)"]
+    P3 --> V0["Visit PLANNED"]
+    V0 --> V1["Start: GPS within 5 min or exception reason"]
+    V1 -->|exception| V1r["gpsReview PENDING -> independent reviewer"]
+    V1 --> V2["IN_PROGRESS"]
+    V2 --> V3["Complete: result + next step or reason, follow-up if FOLLOW_UP_REQUIRED, product discussions via Products"]
+    V3 --> V4["COMPLETED (+FollowUp OPEN)"]
+    V0 --> V5["Cancel (reason in notes)"]
+    V0 --> V6["Missed (reason)"]
+    V0 --> V7["Reschedule request (original RESCHEDULED)"]
+    V7 --> V8{"Rep accepts?"}
+    V8 -->|accept| V9["Replacement visit PLANNED, no plan link"]
+    V8 -->|dismiss| V10["DISMISSED"]
+    VX["Offline: draft saved only on network failure, manual sync, server rejects capture older than 5 min"] -.-> V1
+    VL["Legacy POST /crm/visits: COMPLETED zero-duration, no GPS"] -.-> V4
+    Q4["Q: Do reps still log visits on paper when offline > 5 min?"] -.-> VX
+  end
+
+  subgraph HANDOFF["Order hand-off"]
+    V2 --> H1["Order from visit: orders/new?visitId"]
+    H1 --> H2["Sales creates order with visit_id"]
+    H2 --> H3["Link/complete ORDER_CREATED: CRM verifies order in Sales (same account, same visitId)"]
+    V2 --> H4["Proposal for buyer pharmacy (from doctor visit)"]
+    H4 --> H5["PENDING_REVIEW"]
+    H5 --> H6["Reviewer != creator approves with pharmacy confirmation"]
+    H6 --> H7{"FIELD_PROPOSAL_CONVERSION_ENABLED?"}
+    H7 -->|false - compose default| H8["503: approval stays a record only"]
+    H7 -->|true| H9["Same reviewer converts: Sales order, rep = proposer, no visitId, price = public price"]
+    H9 -->|timeout| H10["UNKNOWN - retry same proposal"]
+  end
+
+  subgraph SUPPORT["Support tickets"]
+    S1["Ticket from support screen or visit complaint"] --> S2["SLA due by priority 2/6/24/48h, category builtin or custom"]
+    S2 --> S3["OPEN -> IN_PROGRESS / WAITING_CUSTOMER -> RESOLVED -> CLOSED, breach sticky"]
+    Q5["Q: Are cold-chain complaints also tracked outside the system?"] -.-> S1
+  end
+
+  L7 --> MASTER
+  M4 --> P1

@@ -1,0 +1,20 @@
+flowchart TD
+  A[QA creates batch status QUARANTINE] --> B[Storekeeper goods receipt]
+  B --> C[(QUARANTINE pool RECEIPT plus QUARANTINE_IN)]
+  B -.-> AP[GoodsReceived to Accounting AP]
+  C --> D{QC record result}
+  D -- PASS or CONDITIONAL --> E[QA release]
+  D -- FAIL --> F[QA reject]
+  E --> G[(WAREHOUSE pool sellable)]
+  F --> H[(DAMAGED pool no exit path)]
+  G --> I[Sales saga reserve request]
+  CS[(Customer consignment)] --> J
+  I --> J[FEFO allocate consignment first then warehouse]
+  J --> K{Enough stock}
+  K -- no --> L[Release all lines and StockReservationFailed]
+  K -- yes --> M[Reservation OPEN]
+  M --> N[Ship order assertShippable]
+  N --> O[ISSUE onHand minus q reserved minus q no COGS]
+  M --> P[Cancel order release]
+  M --> Q[Stale over 72h report only]
+  B2[Second receipt of released batch] --> C2[(stays in QUARANTINE until manual move)]

@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> UNPAID: generate() / createDirect() cash
+  [*] --> DEFERRED: createDirect() credit terms
+  UNPAID --> PARTIAL: payment / return credit (settled < total)
+  DEFERRED --> PARTIAL: payment / return credit
+  UNPAID --> PAID: settled >= total
+  DEFERRED --> PAID: settled >= total
+  PARTIAL --> PAID: settled >= total
+  PARTIAL --> UNPAID: payment reversal (settled = 0)
+  PAID --> PARTIAL: payment reversal
+  PAID --> UNPAID: payment reversal (settled = 0)
+  UNPAID --> CANCELLED: cancel() / voidForCancelledOrder() (no money)
+  UNPAID --> CANCELLED: reissue() (source voided; replacement created)
+  DEFERRED --> CANCELLED: reissue() only
+  CANCELLED --> [*]

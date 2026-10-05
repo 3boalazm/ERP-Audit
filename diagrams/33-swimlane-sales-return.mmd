@@ -1,0 +1,26 @@
+flowchart TB
+  subgraph R1["Rep"]
+    a1["POST /orders/:id/returns (status INVOICED|PAID|SHIPPED|DELIVERED)<br/>per-batch cap; returnedQty reserved"]
+  end
+  subgraph R2["Independent approver (not creator unless .any / SUPER_ADMIN)"]
+    b1{"approve / reject"}
+  end
+  subgraph R3["Sales"]
+    c1["PENDING -> APPROVED -> publish SalesReturnCreated -> POSTED"]
+    c2["REJECTED (returnedQty released)"]
+  end
+  subgraph R4["Inventory"]
+    d1["SELLABLE lines: onHand += qty in WAREHOUSE pool (no QC, any warehouse given by client)<br/>DAMAGED: zero-qty audit row"]
+  end
+  subgraph R5["Accounting"]
+    e1{"paid + credited + amount > total?"}
+    e2["applyReturnCredit + credit note CR-YYYY-NNNN<br/>publish SalesReturnCredited"]
+    e3["ConflictException -> retries -> DLQ<br/>(stock already restocked: divergence)"]
+  end
+  a1 --> b1
+  b1 -->|approve| c1
+  b1 -->|reject| c2
+  c1 -->|"sales.return.created"| d1
+  c1 -->|"sales.return.created"| e1
+  e1 -->|no| e2
+  e1 -->|"yes (fully paid invoice)"| e3

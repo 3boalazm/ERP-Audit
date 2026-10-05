@@ -1,0 +1,23 @@
+flowchart TB
+  subgraph HOST[Hostinger KVM 8, Ubuntu 24.04, UFW default deny]
+    subgraph PROXYPRJ[compose project nginx-proxy-manager /opt/codeandcanvas/proxy]
+      NPM[nginx-proxy-manager :80/:443]
+    end
+    subgraph NET1[network nile-pharma-erp_default - Nile project]
+      WEB[web 127.0.0.1:3000]
+      SVC[9 backends 127.0.0.1:3001-3009]
+      RP[redpanda no host port]
+      DBM[db-migrate Exited 3]
+      ACM[accounting-manual Exited 1<br/>definition not in git]
+    end
+    subgraph NET2[network nile-internal Internal=false, not in git]
+      PG["nile-postgres postgres:18<br/>created from docker-compose.postgres.yml - NOT in git"]
+    end
+    NPM --- NET1
+    NPM --- HLOSNET[hlos-edge]
+    PG --- NET1
+    V1[(nile_postgres_data)] --- PG
+    V2[(nile-pharma-erp_redpanda_data)] --- RP
+    V3[("nile-pharma-erp_pg_accounting - unused, name matches dev docker-compose.yml")]
+    REPO["repo dir /opt/codeandcanvas/apps/nile-pharma-erp<br/>git HEAD fa40270, .env, .env.backup.*, .deploy/release.env"]
+  end

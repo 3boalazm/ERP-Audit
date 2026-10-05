@@ -1,0 +1,11 @@
+flowchart TD
+  S1[Open count session snapshot balances] --> S2[Count lines blind optional countedQty null means not counted]
+  S2 --> S3[Submit every variance needs reason]
+  S3 --> S4{Approver not counter}
+  S4 -- reject --> S2
+  S4 -- approve --> S5{Movements after snapshot DEC-INV-13}
+  S5 -- conflict --> S6[Recount affected lines]
+  S5 -- ok --> S7{Shortage below reserved}
+  S7 -- yes --> S8[Fail no silent release]
+  S7 -- no --> S9[Atomic post ledger per variance POSTED outbox idempotent]
+  S9 --> S10[Nightly reconciliation zero drift]

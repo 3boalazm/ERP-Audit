@@ -1,0 +1,22 @@
+flowchart TD
+  A["Credit limit edited in CRM (owner rep, .any or SUPER_ADMIN), reason optional"] --> A1["CreditLimitUpdated published directly (no outbox)"]
+  A1 --> A2["Sales account_credit.creditLimit updated"]
+  B["Order create / submit"] --> C["Lock account_credit row (FOR UPDATE)"]
+  C --> D{"limit > 0 ?"}
+  D -- "no (0 = not configured)" --> E{"total >= 100000"}
+  D -- "yes" --> F{"outstanding + committed + new > limit"}
+  F -- "yes" --> G["CREDIT_HOLD + CreditHoldTriggered (no outbox) + notify"]
+  F -- "no" --> E
+  E -- "yes" --> H["PENDING_APPROVAL"]
+  E -- "no" --> I["APPROVED -> allocation"]
+  G --> J{"Override by manager"}
+  J -- "atomic claim, reason" --> I
+  G --> J2["Cancel order"]
+  K["Accounting events"] --> L{"Event type"}
+  L -- "InvoiceGenerated (order or direct)" --> L1["outstanding +total"]
+  L -- "PaymentReceived with order_id" --> L2["outstanding -amount (clamped at 0)"]
+  L -- "PaymentReceived direct invoice" --> L3["IGNORED (SAL-03)"]
+  L -- "PaymentReversed / bounce" --> L4["outstanding +amount"]
+  L -- "InvoiceCancelled" --> L5["outstanding -total"]
+  M["Overdue / bounced customers"] --> M1["No customer-level hold - QUESTION Q-AS-6"]
+  N["Consignment quantities at customer"] --> N1["Tracked per batch, no box limit - QUESTION Q-AS-7"]

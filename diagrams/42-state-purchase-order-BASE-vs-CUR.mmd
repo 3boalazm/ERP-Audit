@@ -1,0 +1,18 @@
+stateDiagram-v2
+  direction LR
+  state "PO (BASELINE)" as B {
+    [*] --> DRAFT
+    DRAFT --> PENDING_APPROVAL: submit
+    PENDING_APPROVAL --> APPROVED: approve (SoD raiser != approver)
+    PENDING_APPROVAL --> DRAFT: reject (reason)
+    DRAFT --> CANCELLED
+    PENDING_APPROVAL --> CANCELLED
+    APPROVED --> CANCELLED
+  }
+  state "PO (CURRENT)" as C {
+    [*] --> APPROVED_: create (SUPER_ADMIN only)
+    APPROVED_ --> PARTIALLY_RECEIVED: GoodsReceived projection
+    PARTIALLY_RECEIVED --> FULLY_RECEIVED: GoodsReceived projection
+    APPROVED_ --> FULLY_RECEIVED
+    APPROVED_ --> CANCELLED_: cancel (SUPER_ADMIN)
+  }

@@ -1,0 +1,38 @@
+flowchart TB
+  B["Browser (React / Next.js client, tokens in localStorage)"] -->|HTTPS 443| NPM["Nginx Proxy Manager (separate compose project, shared with HLOS)<br/>proxy_host 4.conf -> nile-pharma-erp-web-1:3000"]
+  NPM --> WEB["web: Next.js 15 (BFF)<br/>rewrites /api/svc/* + 13 BFF routes"]
+  subgraph BE["NestJS backends (container :3000, host 127.0.0.1:3001-3009)"]
+    IAM["iam"]
+    ORG["organization"]
+    PRD["products"]
+    INV["inventory"]
+    CRM["crm"]
+    SAL["sales"]
+    ACC["accounting"]
+    INC["incentives"]
+    AUD["audit-aggregator"]
+  end
+  WEB -->|"HTTP rewrite /api/iam|org|products|inventory|crm|sales|accounting|incentives|audit"| BE
+  BE -->|"kafkajs, KAFKA_BROKERS=redpanda:9092"| RP[("redpanda (single node)<br/>vol nile-pharma-erp_redpanda_data")]
+  subgraph PG["nile-postgres (postgres:18) - created from docker-compose.postgres.yml NOT in git"]
+    D1[(nile_iam)]
+    D2[(nile_organization)]
+    D3[(nile_products)]
+    D4[(nile_inventory)]
+    D5[(nile_crm)]
+    D6[(nile_sales)]
+    D7[(nile_accounting)]
+    D8[(nile_incentives)]
+    D9[(nile_audit)]
+  end
+  IAM --> D1
+  ORG --> D2
+  PRD --> D3
+  INV --> D4
+  CRM --> D5
+  SAL --> D6
+  ACC --> D7
+  INC --> D8
+  AUD --> D9
+  MIG["db-migrate (one-shot) - Exited 3"] -.->|"prisma migrate deploy x9 + IAM seed"| PG
+  MAN["accounting-manual - Exited 1<br/>(definition not in git)"] -.-> D7

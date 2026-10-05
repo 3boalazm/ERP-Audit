@@ -1,0 +1,44 @@
+flowchart TD
+  PR["Purchase request - optional per DEC-11"] --> PRA{"Approve - approver not requester"}
+  PRA -- "approved" --> PO["Create PO - server number - currency, FX rate, incoterm, payment terms, delivery address"]
+  PRA -- "rejected" --> PRX["Rejected with reason"]
+  PO --> POA{"PO approval per DEC-02 - threshold per DEC-13"}
+  POA -- "approved by finance manager, not creator" --> POS["PO APPROVED then SENT - print per DEC-03 - outbox event"]
+  POA -- "rejected" --> PO
+  POS --> SH["Import shipment linked to PO lines - placement per DEC-04"]
+  SH --> DOCS["Documents: commercial invoice, packing list, BL or AWB, COO, COA"]
+  DOCS --> CF{"Customs filed gate - documents complete"}
+  CF -- "no" --> DOCS
+  CF -- "yes" --> REG{"All regulatory clearances approved"}
+  REG -- "pending or sample" --> WAIT["Wait"]
+  REG -- "rejected" --> HELD["Shipment HELD plus event"]
+  REG -- "approved" --> REL["Customs released"]
+  REL --> GRN["Receipt or GRN per DEC-08 - quarantine - idempotency key - PO line and shipment line refs"]
+  GRN --> EV["Event GoodsReceived with PO line refs"]
+  EV --> AP["Supplier ledger DEBIT RECEIPT - inbox tx"]
+  EV --> PROJ["PO receivedQty and status - same tx or guaranteed retry - audit row"]
+  EV --> GL1["GL entry idempotent by event"]
+  PROJ --> EXR["Linking exceptions report: cancelled PO, product or supplier mismatch, over-receipt per DEC-06"]
+  GRN --> DMG{"Damaged qty"}
+  DMG -- "yes" --> CLM["Supplier or carrier claim Submitted"] --> CLD{"Accepted"}
+  CLD -- "yes" --> CLS["Settlement per DEC-12 or APPROVED_PENDING_SETTLEMENT"]
+  CLD -- "no" --> CLR["Rejected"]
+  SH --> LCE["Landed cost charges ESTIMATED by type, service supplier, currency"]
+  LCI["Freight, customs, broker invoices with invoice type"] --> LCA["Charges ACTUAL"]
+  LCE --> LCA
+  LCA --> APS["AP for service suppliers or CUSTOMS_AUTHORITY"]
+  LCA --> LCP{"All actual and shipment received"}
+  LCP -- "yes" --> LCPOST["Post: allocate Decimal, remainder to last line, update batch unit cost, cost event"]
+  POS --> VI["Vendor invoice: type GOODS, currency, rate, due date from payment term, attachment"]
+  VI --> MT{"Match: cumulative billed vs actual received, price, currency, UoM"}
+  MT -- "matched" --> AFP["APPROVED_FOR_PAYMENT"]
+  MT -- "exception" --> OV{"Override by CFO-level user other than registrant, with reason"}
+  OV -- "approve" --> AFP
+  OV -- "reject" --> RJ["REJECTED - refused if any payment exists"]
+  AFP --> AG["Aging on approved unpaid invoices plus received-not-invoiced report per DEC-01"]
+  AG --> PAY["Supplier payment: idempotency key, invoice, treasury account, method per DEC-09"]
+  PAY --> CHK{"Invoice approved, amount within remainder, currency matches, balance enough"}
+  CHK -- "no" --> PAYX["Rejected 400"]
+  CHK -- "yes" --> POSTP["One tx: AP CREDIT, treasury PAYMENT_OUT, GL, realized FX diff"]
+  POSTP --> PAID["Invoice PARTIAL or PAID"]
+  PAID -. "reverse with reason" .-> REV["Opposite AP, treasury, GL entries - invoice back to APPROVED_FOR_PAYMENT"]

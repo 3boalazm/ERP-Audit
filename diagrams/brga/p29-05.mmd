@@ -1,0 +1,29 @@
+flowchart TD
+  A1["Lead NEW"] --> A2["QUALIFIED"]
+  A2 --> A3{"Customer exists?"}
+  A3 -->|no| A4["Convert opens onboarding with lead data (DEC-CRM-13)"]
+  A3 -->|yes| A5["Link existing account"]
+  A4 --> B1
+  A5 --> A6["CONVERTED"]
+
+  B0["Legacy candidates reviewed and classified by named reviewer (DEC-CRM-05)"] --> B1
+  B1["Onboarding: basic data, classified type, channel FIELD_REP or DIRECT or SHIPPING (DEC-CRM-08)"] --> B2["One tx + outbox AccountCreated"]
+  B9["File import uses SAME onboarding transaction, no type default (DEC-CRM-04)"] --> B2
+  B2 --> B3["Manager assigns PRIMARY/BACKUP + territory with audited history"]
+  B3 --> B4["Opening balance and credit limit via separate finance decisions (C5/C6)"]
+
+  B3 --> C1["Rep drafts plan (daily or weekly per DEC-CRM-09)"]
+  C1 --> C2{"Supervisor approval required?"}
+  C2 -->|yes| C3["Supervisor approves / returns"]
+  C2 -->|no| C4["Published"]
+  C3 --> C4
+  C4 --> C5["Visit start: GPS + distance to customer stored, warning over threshold"]
+  C5 --> C6["Complete: result + next step, follow-up rules per DEC-CRM-11"]
+  C6 --> C7{"Order?"}
+  C7 -->|same customer| C8["Order from visit in Sales (visit_id), credit check"]
+  C7 -->|other buyer| C9["Proposal -> independent review + buyer confirmation -> conversion enabled"]
+  C5 --> C10["Offline: draft with late-sync flag reviewed (DEC-CRM-10)"]
+  C4 --> C11["Nightly job 23:30 Cairo: unvisited stops MISSED"]
+  C11 --> C12["Coverage KPIs planned vs actual, targets vs achievement"]
+  C6 --> D1["Complaint -> ticket with SLA, verified assignees, bounded lists, DB-side SLA stats"]
+  B1 --> E1["Inactive customers blocked from new sales (DEC-CRM-07)"]

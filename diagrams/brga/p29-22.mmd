@@ -1,0 +1,41 @@
+flowchart TD
+  subgraph Operational
+    D1["Sales invoice"]
+    D2["Credit or debit note"]
+    D3["Customer collection or reversal"]
+    D4["Goods receipt or supplier return"]
+    D5["Vendor invoice and supplier payment"]
+    D6["Stock issue COGS"]
+    D7["Wastage or write-off"]
+    D8["Depreciation run"]
+    D9["Expenses, payroll, gifts"]
+    D10["FX revaluation M2 at BANK"]
+  end
+  D1 & D2 & D3 & D4 & D5 & D6 & D7 & D8 & D9 & D10 --> PG{"Period OPEN for document date"}
+  PG -- no --> REJ["Reject, or reopen with permission and audit"]
+  PG -- yes --> PE["Posting engine - approved posting rules table"]
+  PE --> SL[("AR and AP sub-ledger row - unique refType and refId")]
+  PE --> JE[("Balanced posted journal - unique source")]
+  PE --> TXE[("Automatic tax entry per document")]
+  PE -- "missing rule or account" --> EXQ["Exception queue or suspense - owner decision"]
+  D5 --> RFX["Realized FX gain or loss at settlement"]
+  RFX --> PE
+  MJ["Manual journal draft"] --> MA{"Submit and approve with SoD"}
+  MA -- approved --> PG
+  JE --> REC["Nightly reconciliation - sub-ledger vs control accounts vs Sales projection"]
+  REC --> FND[("Persisted findings and alert")]
+  D1 & D2 --> ETAB["Build ETA document if data complete"]
+  ETAB --> SIGN["Sign - agent or cloud provider"]
+  SIGN --> SUB["Submit with retry then poll status"]
+  SUB -- VALID --> PRT["Print tax invoice with UUID and QR"]
+  SUB -- INVALID --> FIX["Correct and resubmit with new internalId"]
+  CL["Month-end close checklist"] --> CHK{"No unposted drafts, TB balanced, recon clean"}
+  CHK -- yes --> LOCK["Close period and audit"]
+  LOCK --> VATR["VAT return and Form 41 per period"]
+  TXE --> VATR
+  VATR --> SNAP["Filed snapshot locked"]
+  LOCK --> TB["Trial balance from posted journals"]
+  TB --> FS["Financial statements"]
+  LOCK --> YE["Year-end closing journal to retained earnings - once"]
+  OB["Signed opening balances at cut-over date"] --> PE
+  JE --> MR["Management reports from ledgers - Decimal, paginated, exportable"]

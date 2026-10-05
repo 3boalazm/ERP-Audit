@@ -1,0 +1,14 @@
+flowchart TD
+  R1[Rep records return on order INVOICED PAID SHIPPED DELIVERED] --> R2{Batch in real allocation and qty within remaining}
+  R2 -- no --> R3[Reject 400]
+  R2 -- yes --> R4[Return PENDING returnedQty incremented]
+  R4 --> R5{Independent approver decision}
+  R5 -- reject with reason --> R6[REJECTED returnedQty released edit and resubmit]
+  R6 --> R4
+  R5 -- approve --> R7[APPROVED then publish SalesReturnCreated then POSTED]
+  R7 --> R8{Line condition declared by requester}
+  R8 -- SELLABLE --> R9[(WAREHOUSE pool sellable immediately no inspection)]
+  R8 -- DAMAGED --> R10[Ledger row qty 0 goods vanish from books]
+  R7 --> R11{Invoice fully paid}
+  R11 -- no --> R12[creditedAmount increased]
+  R11 -- yes --> R13[Credit rejected by accounting stock already restocked]

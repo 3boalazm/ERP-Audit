@@ -1,0 +1,25 @@
+stateDiagram-v2
+  direction LR
+  state "Expense claim (expenses.service.ts)" as E {
+    [*] --> DRAFT: POST /expenses (organization.employees.read)
+    DRAFT --> SUBMITTED: submit (no ownership check)
+    SUBMITTED --> MANAGER_APPROVED: manager-approve (organization.departments.manage; approver != employeeId)
+    MANAGER_APPROVED --> FINANCE_APPROVED: finance-approve (accounting.payments.create; approver != employeeId)
+    FINANCE_APPROVED --> PAID: pay (accounting.payments.create) - no event, no GL
+    DRAFT --> REJECTED: reject (any status, no guard)
+    SUBMITTED --> REJECTED
+    MANAGER_APPROVED --> REJECTED
+    FINANCE_APPROVED --> REJECTED
+    PAID --> REJECTED: possible - no status check
+  }
+  state "Payroll run (payroll.service.ts)" as P {
+    [*] --> PDRAFT: POST /payroll/runs (calculate)
+    PDRAFT --> CALCULATED: calculate (records calculatedBy)
+    CALCULATED --> APPROVED: approve (approver != calculatedBy unless SUPER_ADMIN)
+    CALCULATED --> PDRAFT: reject (reason required)
+    APPROVED --> FINALIZED: finalize
+    FINALIZED --> PAIDR: mark-paid - no event, no GL
+    PDRAFT --> CANCELLED: cancel
+    CALCULATED --> CANCELLED
+    APPROVED --> CANCELLED
+  }

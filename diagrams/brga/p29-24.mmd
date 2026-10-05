@@ -1,0 +1,23 @@
+flowchart TD
+  A["Create financial account with custodian and GL link"] --> B["Opening balance voucher, approved, with reference (DEC-TRC-04)"]
+  C["Collection"] --> D{"Collector"}
+  D -- "Field rep" --> E["Entry into rep custody account (REQ-TRC-013)"]
+  D -- "Office" --> F["Entry into selected account matching method (REQ-TRC-008)"]
+  E --> G["Remittance voucher submitted by rep"]
+  G --> H{"Receiver confirms (receiver is not rep)"}
+  H -- "confirmed" --> I["Custody minus, main box plus, once (idempotent)"]
+  H -- "rejected / short" --> I2["Difference recorded, escalation"]
+  C -- "Cheque / promissory" --> J["Instrument in portfolio, due alerts (REQ-TRC-011)"]
+  J --> K{"Instrument outcome"}
+  K -- "Deposited then cleared" --> K1["Bank entry on deposit bank, clears under-collection (REQ-TRC-010)"]
+  K -- "Bounced" --> K2["Reverse AR + exposure + bank if entered, fee, customer credit hold (REQ-TRC-012, DEC-TRC-13)"]
+  K2 --> K3["Replacement instrument linked"]
+  P["Any disbursement: supplier / expense / payroll / gift"] --> Q["Numbered voucher DRAFT"]
+  Q --> Q1{"Approver is not creator"}
+  Q1 -- "approved" --> Q2["POSTED: PAYMENT_OUT entry linked to source doc + journal (REQ-TRC-014, REQ-TRC-015)"]
+  R["Any reversal"] --> R1["Opposite treasury entry referencing original (REQ-TRC-004)"]
+  S["Periodic count / bank statement"] --> S1["Reconciliation with stored difference"]
+  S1 --> S2{"Difference approved?"}
+  S2 -- "yes" --> S3["Adjustment entry linked to count, status SETTLED"]
+  U["Nightly job"] --> U1["Balance = sum of entries, treasury vs GL check, alert on drift"]
+  V["Treasury position report (REQ-TRC-016): cash, wallets, InstaPay, uncleared cheques separate"]

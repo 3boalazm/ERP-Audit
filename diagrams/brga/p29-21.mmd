@@ -1,0 +1,40 @@
+flowchart TD
+  subgraph Sources
+    SO["Sales order saga - StockReserved"]
+    DI["Direct counter invoice - POST invoices"]
+    PAY["Customer payment - POST payments"]
+    RET["Sales return approved"]
+    GR["Goods received event"]
+    SR["Supplier return event"]
+    MAN["Accountant manual tax entry"]
+    FAR["Fixed asset run-monthly"]
+    FXR["Accountant records FX rates"]
+  end
+  SO --> INV["Invoice and lines - INV timestamp number"]
+  DI --> INV
+  INV --> ARL[("AR ledger DEBIT INVOICE")]
+  PAY --> ARL2[("AR ledger CREDIT PAYMENT")]
+  PAY --> TRE[("Treasury entry - not for cheques")]
+  RET --> ARL3[("AR ledger CREDIT RETURN")]
+  RET --> CN["Credit note CR-YYYY-NNNN"]
+  CN -. "flag off by default" .-> TAX
+  GR --> APL[("Supplier ledger RECEIPT in EGP")]
+  SR --> APL2[("Supplier ledger SUPPLIER_RETURN")]
+  MAN --> TAX[("tax_entries")]
+  TAX --> VAT["VAT summary page"]
+  TAX --> F41["Form 41 then mark reported flag"]
+  FAR --> DEP[("depreciation_entries - no journal, no duplicate guard")]
+  FXR --> RATES[("ExchangeRate history")]
+  RATES --> STALE["09:00 stale BANK rate alert"]
+  RATES --> REV["POST fx revalue - M2 reverse then repost"]
+  APL --> REV
+  COA[("chart_of_accounts balance - never posted")] --> TB["Trial balance from balances"]
+  COA --> YE["Year-end adds net income to 3200 on each run"]
+  FP[("fiscal_periods - status label only")] -. "not checked by any posting" .-> INV
+  ARL --> RPT["Reports - aging from issue date, sales, inventory, customers"]
+  ARL --> OUT{{"Official GL outside ERP - QUESTION"}}
+  APL --> OUT
+  TRE --> OUT
+  VAT --> OUT
+  OUT --> FS["Financial statements and tax filings outside ERP - QUESTION"]
+  ETA{{"ETA e-invoice - no code - manual practice QUESTION"}}

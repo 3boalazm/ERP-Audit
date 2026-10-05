@@ -1,0 +1,32 @@
+flowchart TB
+  subgraph P1["Purchasing / Finance user"]
+    a1["Create PO (BASE: DRAFT + client number; CUR: SUPER_ADMIN, born APPROVED, PO-YYYY-NNNN)"]
+    a2["Submit / approve PO (BASE only, SoD creator != approver)"]
+    a5["Register vendor invoice (POST /matching/vendor-invoices)"]
+    a6["Override / reject exception (SoD)"]
+  end
+  subgraph P2["Warehouse (Inventory)"]
+    b1["Goods receipt into QUARANTINE pool<br/>(no idempotency key, PO link optional, record-only)"]
+    b2["QC release -> WAREHOUSE (sellable)"]
+    b3["Supplier return (direct publish)"]
+  end
+  subgraph P3["Accounting (system)"]
+    c1["GoodsReceived -> supplier ledger RECEIPT (DEBIT=we owe)<br/>CUR: + GL Dr1131/Cr2111 + PO receipt projection"]
+    c2{"3-way match<br/>BASE: received = ordered assumption<br/>CUR: billed vs received"}
+    c3["APPROVED_FOR_PAYMENT"]
+    c4["EXCEPTION_PENDING"]
+    c5["SupplierReturnCreated -> ledger RETURN"]
+  end
+  subgraph P4["Treasury / AP payment"]
+    d1["BASE: NO supplier-payment feature<br/>(only free PAYMENT_OUT treasury entry)"]
+    d2["CUR: 2 supplier-payment modules exist but NOT mounted"]
+  end
+  a1 --> a2 --> b1
+  b1 -->|"GoodsReceived (BASE direct / CUR outbox)"| c1
+  b1 --> b2
+  a5 --> c2
+  c2 -->|"MATCHED"| c3
+  c2 -->|"mismatch / no PO"| c4 --> a6 --> c3
+  c3 --> d1
+  c3 -.-> d2
+  b3 -->|"direct publish"| c5

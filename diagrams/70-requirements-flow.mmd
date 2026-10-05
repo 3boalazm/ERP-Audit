@@ -1,0 +1,12 @@
+flowchart TD
+  A[Company artefacts: Excel ledgers, incentive sheet, PO PDFs] -->|AI review| R[audit/2026-09-18 company-workflows F01-F13]
+  O[Owner chat answers] --> D1[DECISIONS-2026-09-25-ar.md]
+  O --> D2[P1 pack 'Decisions confirmed 2026-09-28' CURRENT only]
+  O --> D3[roadmap 2026-09-19 approved user decisions]
+  P[AI options packs: DECISIONS-AR, P1-BUSINESS-DECISION-PACK BD-1..8, REQUESTS-2026-09-25] -->|questions| O
+  D1 --> I[Implementing agent commits + status column in same doc]
+  D2 --> I
+  I --> S[AI status reports: ACCOUNTING-AUDIT-2026-09-28, REPORTS-IMPLEMENTATION-STATUS, RTM 'VERIFIED 100%']
+  S --> G[go-live-acceptance-gate.cjs: file-exists / string-contains checks]
+  G --> GL[GO-LIVE-ACCEPTANCE-REPORT 10/10 PASS - explicitly not sign-off]
+  I -. no independent owner verification step documented .-> O

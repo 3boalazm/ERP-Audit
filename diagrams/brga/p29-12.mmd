@@ -1,0 +1,8 @@
+flowchart TD
+  C1[Physical count on paper outside system] --> C2[Storekeeper enters COUNT_CORRECTION per item]
+  C2 --> C3{Decrease 50 or more or theft without large permission}
+  C3 -- no --> C4[Applied immediately]
+  C3 -- yes --> C5[AdjustmentRequest PENDING]
+  C5 --> C6[Approve claim then execute outside claim tx no self approval guard]
+  C6 --> C7[ADJUSTMENT row and StockAdjusted]
+  C8["Nightly conservation 03:30"] --> C9[False drift on every quarantine receipt]

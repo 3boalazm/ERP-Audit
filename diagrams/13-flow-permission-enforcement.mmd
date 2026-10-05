@@ -1,0 +1,20 @@
+flowchart TD
+  R[HTTP request reaches service] --> T{ThrottlerGuard: under limit for req.ip?}
+  T -- no --> X429[429]
+  T -- yes --> P{"@Public on handler/class?"}
+  P -- yes --> H[Handler runs - only IAM auth routes are @Public]
+  P -- no --> J{passport-jwt: signature + exp valid with JWT_ACCESS_SECRET?}
+  J -- no --> X401[401 TOKEN_EXPIRED / INVALID_TOKEN]
+  J -- yes --> M{sid present or SESSION_IDLE_ENFORCEMENT=true?}
+  M -- yes --> SC{IAM /auth/session-check active?}
+  SC -- no --> X401b[401 SESSION_REVOKED / 503 unavailable]
+  SC -- yes --> MCP
+  M -- no --> MCP{token.mcp === true and path not allow-listed?}
+  MCP -- yes --> X403a[403 PASSWORD_CHANGE_REQUIRED]
+  MCP -- no --> G{"Controller has @UseGuards(PermissionsGuard)?"}
+  G -- no --> H2["Handler runs for ANY authenticated user; @Permissions metadata is ignored"]
+  G -- yes --> MD{"@Permissions metadata present?"}
+  MD -- no --> X403b[403 missing permissions metadata - fail closed]
+  MD -- yes --> ALL{token.permissions contains ALL required codes?}
+  ALL -- no --> X403c[403 Missing permission]
+  ALL -- yes --> H3["Handler runs; service may further scope by .any codes / actor id"]

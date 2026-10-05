@@ -1,0 +1,12 @@
+flowchart TD
+  W1[(DAMAGED from receipt QC reject returns recall)] --> W2[Damage sorting verdict]
+  W2 -- repair --> W3[Warehouse manager approves to WAREHOUSE no loss]
+  W2 -- gift or sample --> W4[Sales or marketing approves marketing expense on doctor or customer]
+  W2 -- destroy --> W5[Disposal order draft]
+  W2 -- claim --> W6[Finance or procurement approves supplier or carrier claim receivable]
+  W6 -- claim rejected --> W7[Loss posted]
+  W2 -- return to supplier --> W8[Supplier return from DAMAGED pool AP credit]
+  W5 --> W9[Approval per DEC-INV-19 with signature]
+  W9 --> W10[Schedule with destruction company and regulator witness if required]
+  W10 --> W11[Execute decrement DAMAGED reject 409 if short]
+  W11 --> W12[Post valued StockDisposed idempotent and certificate attached]

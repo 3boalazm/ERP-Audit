@@ -1,0 +1,16 @@
+flowchart LR
+  BR["Browser"] -->|"/api/iam/*"| W
+  BR -->|"/api/org/* ... /api/audit/*"| W
+  BR -->|"/api/dashboard, /api/tasks, /api/search, reports..."| BFF
+  subgraph W["web: next.config.js rewrites (baked at build)"]
+    R1["/api/iam/:path* -> http://iam:3000/api/:path*"]
+    R2["/api/org/:path* -> http://organization:3000/api/:path*"]
+    R3["/api/products|inventory|crm|sales|accounting|incentives/:path*"]
+    R4["/api/audit/:path* -> http://audit-aggregator:3000/api/:path*"]
+  end
+  subgraph BFF["web: app/api/*/route.ts (13 server routes, runtime env URLs, 4-8s timeouts)"]
+  end
+  W --> SVC["Service: setGlobalPrefix('api') -> JwtAuthGuard (global) -> ThrottlerGuard 60/min/IP -> PermissionsGuard (per controller) -> handler"]
+  BFF -->|"forwards Authorization header"| SVC
+  SVC -.->|"/health, /health/details outside /api, unauthenticated, not reachable through rewrites"| H["health"]
+  N1["CURRENT: 35 routes in 8 accounting controllers NOT mounted -> 404; 12 web calls target them"]

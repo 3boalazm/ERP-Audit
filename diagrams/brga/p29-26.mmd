@@ -1,0 +1,24 @@
+flowchart TD
+  A["Rep or manager submits credit limit request with justification"] --> B{"Approver independent of requester and account rep (DEC-TRC-12)"}
+  B -- "approved" --> C["Limit + history updated, CRITICAL audit via outbox"]
+  B -- "rejected" --> C2["Rejected with reason"]
+  D["Customer credit status: ACTIVE / FROZEN / CASH_ONLY (DEC-TRC-10)"] --> E
+  E["Order create / submit"] --> F["Serialize per customer"]
+  F --> G{"Money check: outstanding + committed incl. shipped-not-invoiced + new > limit"}
+  F --> G2{"Box check per item: remaining at customer + new qty > item box limit (REQ-TRC-030, DEC-TRC-07)"}
+  F --> G3{"Active customer hold (bounce / overdue) ?"}
+  G -- "exceeds" --> H["CREDIT_HOLD with reason"]
+  G2 -- "exceeds" --> H
+  G3 -- "yes" --> H
+  G -- "ok" --> I{"total >= approval threshold (configurable)"}
+  H --> J{"Independent override, reason mandatory, no self-override"}
+  J -- "override" --> I
+  I -- "yes" --> K["PENDING_APPROVAL"]
+  I -- "no" --> L["APPROVED -> allocation"]
+  M["Accounting events with unique event id"] --> N["Exposure movement applied exactly once (REQ-TRC-022, REQ-TRC-025)"]
+  O["Nightly reconciliation: exposure vs AR ledger snapshot"] --> O1{"Drift?"}
+  O1 -- "yes" --> O2["Alert + controlled correction (REQ-TRC-024)"]
+  P["Consignment sales recorded monthly (draw source)"] --> Q["Average draw per customer x item (REQ-TRC-031)"]
+  Q --> R["Recalculate box limit for moving items only (formula DEC-TRC-05, threshold DEC-TRC-06)"]
+  S["Cheque bounced"] --> S1["Customer hold until release by authorised user (DEC-TRC-13)"]
+  T["Invoice due date = issue date + customer terms (REQ-TRC-033, DEC-TRC-09)"] --> T1["Overdue report by segment and rep"]

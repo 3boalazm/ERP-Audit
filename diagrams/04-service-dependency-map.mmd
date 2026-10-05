@@ -1,0 +1,17 @@
+flowchart LR
+  WEB["web (BFF + rewrites)"]
+  IAM[iam]; ORG[organization]; PRD[products]; INV[inventory]; CRM[crm]; SAL[sales]; ACC[accounting]; INC[incentives]; AUD[audit-aggregator]
+  WEB ==>|"rewrite proxy + BFF fan-out"| IAM & ORG & PRD & INV & CRM & SAL & ACC & INC & AUD
+  SAL -->|"GET accounts/visits/proposals (JWT fwd, 3s)"| CRM
+  CRM -->|"GET orders/:id; POST from-field-proposal"| SAL
+  CRM -->|"POST payments/from-field-proposal"| ACC
+  CRM -->|"GET products/:id"| PRD
+  CRM -->|"GET users/account-assignees"| IAM
+  ACC -->|"validate-batch / issue-direct / rollback-direct"| INV
+  ACC -->|"GET products/public-prices"| PRD
+  ACC -->|"shipping quote"| SAL
+  ACC -->|"GET field-operations/proposals"| CRM
+  IAM -.->|"Copilot tools (CUR compose only)"| ACC & CRM & PRD & INV
+  ORG & PRD & INV & CRM & SAL & ACC & INC & AUD -.->|"session-check if sid or SESSION_IDLE_ENFORCEMENT"| IAM
+  classDef s fill:#eef,stroke:#446
+  class IAM,ORG,PRD,INV,CRM,SAL,ACC,INC,AUD s

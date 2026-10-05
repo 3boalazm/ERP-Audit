@@ -1,0 +1,9 @@
+flowchart TD
+  D1[QC reject] --> D3[(DAMAGED pool)]
+  D2[Manual pool move] --> D3
+  D4[Customer return DAMAGED] --> D5[Qty 0 audit row only]
+  D3 --> D6["07:00 disposal candidates report only"]
+  D3 --> D7{Exit path}
+  D7 --> D8[None in system]
+  D8 --> D9[Workaround move back to QUARANTINE then WAREHOUSE then adjust or supplier return]
+  D6 --> D10[Destruction committee and accounting outside system]

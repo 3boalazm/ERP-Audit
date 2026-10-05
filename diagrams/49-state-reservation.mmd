@@ -1,0 +1,9 @@
+stateDiagram-v2
+  direction LR
+  state "Reservation (inventory_reservations)" as Res {
+    [*] --> OPEN: reserve() isReleased=false issuedAt=null
+    OPEN --> ISSUED: issue() on OrderMarkedShipped (issuedAt set)
+    OPEN --> RELEASED: release() on shortfall / OrderCancelled (isReleased=true)
+    [*] --> ISSUED_DIRECT: issueDirect() (issuedAt set at creation)
+    ISSUED_DIRECT --> RELEASED_COMP: rollbackDirect() (isReleased=true, issuedAt kept)
+  }

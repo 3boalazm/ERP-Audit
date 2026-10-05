@@ -1,0 +1,13 @@
+flowchart TD
+  V1[QA initiates recall] --> V2[RecallInitiated via outbox and RecallCase OPEN]
+  V2 --> V3[Block batch freeze consignment hold orders]
+  V2 --> V4[Distribution list customers and consignment holders]
+  V4 --> V5[Notify customers and regulator record acknowledgment]
+  V5 --> V6[Recall returns update retrieved qty]
+  V3 --> V7{Per held order decision}
+  V7 -- CANCEL --> V8[Release stock and create customer credit if paid]
+  V7 -- RESUME --> V9[Only if block lifted not for recall]
+  V6 --> V10{Distributed equals retrieved plus locally disposed}
+  V10 -- yes --> V11[RECONCILED closure report]
+  V10 -- no --> V5
+  V11 --> V12[Retrieved stock to disposal order]

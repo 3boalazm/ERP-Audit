@@ -1,0 +1,43 @@
+flowchart TB
+  subgraph L1["Sales rep / CRM"]
+    a1["Create order (POST /api/sales/orders)<br/>price = catalogue public price, default discount 12%"]
+    a9["Record collection (POST /api/accounting/payments)"]
+  end
+  subgraph L2["Sales service"]
+    b1{"Credit check<br/>account_credit FOR UPDATE"}
+    b2["CREDIT_HOLD"]
+    b3{"grandTotal >= 100000?"}
+    b4["PENDING_APPROVAL"]
+    b5["APPROVED -> ALLOCATING<br/>publish StockReserveRequested"]
+    b6["ALLOCATED / INVOICED"]
+    b7["SHIPPED -> DELIVERED"]
+    b8["PAID (on PaymentReceived fully_paid)"]
+  end
+  subgraph L3["Manager / approver"]
+    c1["credit-override"]
+    c2["approve / reject"]
+    c3["ship / deliver / POD"]
+  end
+  subgraph L4["Inventory service"]
+    d1["FEFO allocate + reserve (consignment first)"]
+    d2["issue reservations on OrderMarkedShipped<br/>(no COGS on this path)"]
+  end
+  subgraph L5["Accounting service"]
+    e1["On StockReserved: generate invoice INV-base36<br/>AR ledger DEBIT (BASE: no GL)"]
+    e2["Payment: AR CREDIT + treasury entry + outbox PaymentReceived"]
+  end
+  subgraph L6["Incentives"]
+    f1["Commission ledger PENDING -> APPROVED -> PAID"]
+  end
+  a1 --> b1
+  b1 -->|"over limit"| b2 --> c1 --> b5
+  b1 -->|"ok"| b3
+  b3 -->|yes| b4 --> c2 --> b5
+  b3 -->|no| b5
+  b5 --> d1 -->|"StockReserved"| b6
+  d1 -->|"StockReserved"| e1 -->|"InvoiceGenerated (direct)"| b6
+  d1 -->|"shortfall: StockReservationFailed"| X["ALLOCATION_FAILED (retry endpoint)"]
+  b6 --> c3 --> b7
+  c3 -->|"OrderMarkedShipped"| d2
+  a9 --> e2 -->|"PaymentReceived (outbox)"| b8
+  e2 -->|"PaymentReceived"| f1

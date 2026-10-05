@@ -1,0 +1,7 @@
+stateDiagram-v2
+  [*] --> PENDING: adjustStock() large DECREASE or THEFT_OR_LOSS without large.create
+  PENDING --> APPROVED: approve (conditional updateMany claim)
+  APPROVED --> PENDING: executeAdjustment throws (claim reverted)
+  PENDING --> REJECTED: reject (read-then-update, not conditional)
+  APPROVED --> [*]
+  REJECTED --> [*]

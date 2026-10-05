@@ -1,0 +1,23 @@
+flowchart LR
+  subgraph DOC["Documented (README, PRODUCTION-LAST-MILE, compose comments)"]
+    d1["Hosting: Hostinger VPS compose (also older docs: Railway / Vercel)"]
+    d2["DB: Neon managed Postgres, 'no Postgres container in production'"]
+    d3["Images: digest-pinned GHCR, deploy-production.sh, Neon restore point"]
+    d4["Edge: NPM per-service routes (deploy/nginx template) or web rewrites"]
+  end
+  subgraph CODE["In code (BASELINE 89c2c31 / CURRENT fa40270)"]
+    c1["9 NestJS services + Next.js web + Redpanda, DB-per-service"]
+    c2["Compose has NO postgres service; DATABASE_URL injected"]
+    c3["BASE: host-built local tags IMAGE_TAG; CUR: *_IMAGE digests required"]
+    c4["web rewrites /api/svc/* baked at build + BFF routes"]
+  end
+  subgraph RUN["Proven / reported at runtime"]
+    r1["Compose project nile-pharma-erp on VPS (runtime.txt)"]
+    r2["DATABASE_URL -> nile-postgres:5432 (local PG18 container)"]
+    r3["image nile-pharma-erp/accounting:release-89c2c31 (local tag), env /tmp/nile-recovery-release.env"]
+    r4["NPM -> web:3000 only (user-reported)"]
+  end
+  d2 -. contradicts .-> r2
+  d3 -. contradicts .-> r3
+  c2 -. explains gap .-> r2
+  c4 --- r4

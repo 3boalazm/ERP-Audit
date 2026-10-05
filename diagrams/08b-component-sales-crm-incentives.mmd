@@ -1,0 +1,38 @@
+flowchart LR
+  subgraph Web[apps/web Next.js + BFF]
+  end
+  subgraph CRM[CRM svc - nile_crm]
+    A[Accounts/Onboarding] --- OB[(customer_event_outbox)]
+    FS[Field Sales/Ops] 
+    LD[Leads] 
+    SP[Support]
+  end
+  subgraph SALES[Sales svc - nile_sales]
+    O[Orders] --> CR[Credit read-model]
+    O --> SG[Saga orchestrator / consumer]
+    RT[Returns]
+    SH[Shipments + POD local disk]
+    TF[Shipping tariff]
+    CFG[Discounts / Price rules / Promotions - config only]
+  end
+  subgraph INC[Incentives svc - nile_incentives]
+    IN[Intake consumer] --> EN[Engine] --> LG[Ledger]
+  end
+  INV[Inventory svc]
+  ACC[Accounting svc]
+  IAM[IAM svc]
+  PRD[Products svc]
+  K{{Redpanda}}
+  Web -->|HTTP| CRM & SALES & INC
+  O -->|HTTP GET accounts/visits/proposals| CRM
+  FS -->|HTTP GET orders/:id| SALES
+  FS -->|HTTP POST from-field-proposal| SALES & ACC
+  A -->|HTTP account-assignees| IAM
+  FS -->|HTTP products/:id| PRD
+  OB -->|crm.account.created| K
+  A -->|crm.credit-limit.updated direct| K
+  SALES -->|sales.* , inventory.stock.reserve-requested direct| K
+  K -->|stock.reserved/failed, finance.*, crm.credit-limit.updated, products.price.changed, quality.*| SG
+  K --> INV
+  K --> ACC
+  K -->|finance.payment.received/reversed| IN

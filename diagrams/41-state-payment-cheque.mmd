@@ -1,0 +1,12 @@
+stateDiagram-v2
+  [*] --> Recorded: record()/allocations (reversed=false)
+  Recorded --> Reversed: reverse() [invoice-level only]
+  state CheckStatus {
+    [*] --> RECEIVED
+    RECEIVED --> DEPOSITED: checks/:id/status
+    DEPOSITED --> CLEARED: checks/:id/status (no treasury/GL effect)
+    RECEIVED --> BOUNCED: auto reverse + PaymentFailed
+    DEPOSITED --> BOUNCED
+    CLEARED --> BOUNCED: allowed (only "not BOUNCED" is checked)
+  }
+  Reversed --> [*]

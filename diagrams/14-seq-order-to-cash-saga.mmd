@@ -1,0 +1,41 @@
+sequenceDiagram
+    autonumber
+    actor Rep
+    participant WEB as Web/BFF
+    participant S as Sales
+    participant CRM as CRM
+    participant K as Redpanda
+    participant INV as Inventory
+    participant ACC as Accounting
+    participant INC as Incentives
+    Rep->>WEB: New order
+    WEB->>S: POST /orders (JWT, Idempotency-Key)
+    S->>CRM: GET /api/accounts/:id (JWT fwd, 3s)
+    opt visitId
+      S->>CRM: GET /api/field-sales/visits/:id
+    end
+    S->>S: TX: lock account_credit FOR UPDATE, credit check, insert order+lines+saga(CREATED)
+    S-->>K: sales.order.created (after commit, no outbox)
+    alt CREDIT_HOLD
+      S-->>K: sales.credit.hold-triggered
+      Note over S: manager POST /:id/credit-override → APPROVED
+    else PENDING_APPROVAL (>=100000)
+      Note over S: approver POST /:id/approve → APPROVED + sales.order.approved
+    end
+    S->>S: SERIALIZABLE TX: APPROVED→ALLOCATING, saga RESERVE_REQUESTED
+    S-->>K: inventory.stock.reserve-requested (+invoice_lines snapshot)
+    K-->>INV: StockReserveRequested
+    INV-->>K: inventory.stock.reserved (echo financial payload) / reservation-failed
+    K-->>S: StockReserved → ALLOCATED, allocations
+    K-->>ACC: StockReserved → generate invoice
+    ACC-->>K: finance.invoice.generated (DIRECT publish, no outbox)
+    K-->>S: InvoiceGenerated → INVOICED (if ALLOCATING/ALLOCATED), outstanding += total
+    Rep->>WEB: Ship / Deliver
+    WEB->>S: POST /:id/ship → SHIPPED
+    S-->>K: sales.order.marked-shipped
+    K-->>INV: issue reservations (stock out)
+    WEB->>S: POST /:id/deliver → DELIVERED
+    Note over ACC: payment recorded in Accounting (HTTP)
+    ACC-->>K: finance.payment.received (outbox)
+    K-->>S: credit decrement, collectedAmount+=, PAID if fully_paid (unconditional)
+    K-->>INC: ledger row PENDING (commission)

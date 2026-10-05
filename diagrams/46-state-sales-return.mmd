@@ -1,0 +1,9 @@
+stateDiagram-v2
+  [*] --> PENDING: create (returnedQty += qty)
+  PENDING --> APPROVED: approve claim
+  APPROVED --> POSTED: SalesReturnCreated published
+  APPROVED --> APPROVED: publish failed (approve again retries)
+  PENDING --> REJECTED: reject / cancel (returnedQty -= qty)
+  PENDING --> PENDING: PATCH edit
+  REJECTED --> PENDING: PATCH edit/resubmit
+  POSTED --> [*]

@@ -1,0 +1,27 @@
+flowchart TD
+  A["Rep: POST /orders (Idempotency-Key)"] --> B["Sales: price from product_prices (publicPrice) + default 12pct discount"]
+  B --> C{"C: discount >= 100 or > matrix top?"}
+  C -- "yes (C only)" --> X1["Reject 400/403"]
+  C -- "no / B: no check" --> D["CRM ownership + visit check (fail-closed HTTP)"]
+  D --> E["Optional shipping quote (flat fee per zone/direction)"]
+  E --> F["TX: lock account_credit, credit check (C6)"]
+  F --> G{"Status"}
+  G -- "over limit" --> H["CREDIT_HOLD"]
+  G -- "grandTotal >= 100000 (after discount, incl. shipping)" --> I["PENDING_APPROVAL"]
+  G -- "else" --> J["APPROVED"]
+  H -- "credit-override (skips 100k approval)" --> J
+  I -- "approve (approver != creator)" --> J
+  I -- "reject + reason" --> R1["REJECTED"]
+  J --> K["Saga: APPROVED -> ALLOCATING, publish StockReserveRequested (no outbox)"]
+  K --> L["Inventory (C4): FEFO reserve, consignment first"]
+  L -- "fail" --> M["ALLOCATION_FAILED -> allocation-retry"]
+  L -- "ok: StockReserved" --> N["Sales: ALLOCATED (unconditional)"]
+  L -- "StockReserved" --> O["Accounting: generate invoice at reservation, net-30, INV-base36, AR debit"]
+  O --> P["InvoiceGenerated -> Sales: INVOICED + credit outstanding up (C6)"]
+  P --> Q["Dispatcher: ship from ALLOCATED/INVOICED/PAID (recall gate)"]
+  Q --> S["Inventory: issue stock"]
+  Q --> T["deliver from SHIPPED (POD signature required in UI only)"]
+  P --> U["Collector/Accountant: POST /payments (idempotent, SERIALIZABLE)"]
+  U --> V["Invoice PARTIAL/PAID, AR credit, treasury PAYMENT_IN, outbox PaymentReceived"]
+  V --> W["Sales: collectedAmount up, PAID overwrites status (SAL-01)"]
+  V --> Y["Incentives (C7): commission PENDING"]

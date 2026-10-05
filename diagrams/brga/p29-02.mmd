@@ -1,0 +1,15 @@
+flowchart TD
+  D1["Direct invoice POST /accounting/invoices"] --> D2["catalog public price, line discount up to 100pct (no governance)"]
+  D2 --> D3["issue-direct stock (C4) + invoice + lines + AR debit"]
+  D3 --> D4["InvoiceGenerated order_id=null -> Sales outstanding up, payments never reduce it (SAL-03)"]
+  I1["Import file POST /orders/import"] --> I2["DRAFT orders, cap from pricing_rules only"]
+  I2 --> I3["submit: no repricing, credit -> approval -> FEFO"]
+  C1["Cancel order (reason) DRAFT..INVOICED, no money"] --> C2["OrderCancelled -> Inventory release + Accounting void unpaid invoice"]
+  C1 -. "race: late StockReserved revives (SAL-02)" .-> C3["ALLOCATED again"]
+  V1["Invoice cancel (paid=0, credited=0, reason)"] --> V2["CANCELLED + reversing AR credit"]
+  V1 --> V3["reissue: header-only replacement, free amounts (ACC-17)"]
+  P1["Payment reverse (reason)"] --> P2["AR reversal + PaymentReversed, treasury NOT reversed (ACC-06)"]
+  P3["Cheque status BOUNCED"] --> P2
+  P2 --> P4["Sales PAID->INVOICED, credit up, Incentives reverse one ledger row"]
+  P5["Account-level receipt with allocations"] --> P6["cannot be reversed or bounced (ACC-07)"]
+  R1["Round-trip shipment return leg"] --> R2["normal payment, FINANCE_PENDING -> FINANCE_POSTED, no stock"]

@@ -1,0 +1,8 @@
+stateDiagram-v2
+  [*] --> MATCHING_PENDING: POST /matching/vendor-invoices (PO must be APPROVED/PARTIALLY/FULLY_RECEIVED)
+  MATCHING_PENDING --> APPROVED_FOR_PAYMENT: match MATCHED
+  MATCHING_PENDING --> EXCEPTION_PENDING: QUANTITY/PRICE mismatch or no PO (UNMATCHED_GRN)
+  EXCEPTION_PENDING --> APPROVED_FOR_PAYMENT: matches/:id/override (SoD registrant != approver)
+  EXCEPTION_PENDING --> REJECTED: matches/:id/reject
+  APPROVED_FOR_PAYMENT --> REJECTED: matches/:id/reject (allowed: only "not REJECTED" checked)
+  APPROVED_FOR_PAYMENT --> PAID: CURRENT unregistered supplier-payments only

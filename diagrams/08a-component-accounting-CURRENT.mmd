@@ -1,0 +1,47 @@
+flowchart LR
+  subgraph Kafka
+    SR[inventory.stock.reserved]:::t
+    GR[inventory.goods.received]:::t
+    SI[inventory.stock.issued - CURRENT only]:::t
+    RET[sales.return.created]:::t
+    OC[sales.order.cancelled]:::t
+    AC[crm.account.created]:::t
+    SRC[sales.shipping-return-cash.received]:::t
+  end
+  SL[SagaListener]
+  SR & GR & SI & RET & OC & AC & SRC --> SL
+  SL --> INV[InvoicesService]
+  SL --> PAY[PaymentsService]
+  SL --> CN[CreditNotesService]
+  SL --> SUPL[SupplierLedgerService]
+  SL --> MATCH[MatchingService]
+  SL --> GLS[GeneralLedgerService]
+  INV --> GLS
+  CN --> GLS
+  FA[FixedAssetsService] --> GLS
+  PAY --> GLP[GlPostingService]
+  PAY --> COLL[CollectionService]
+  PAY --> OUT[(outbox_events)]
+  OUT --> OBX[OutboxService] --> K2[(finance.* topics)]
+  INV -. direct publish .-> K2
+  FP[FiscalPeriodsService] --> JE[(journal_entries / journal_lines)]
+  GLS --> JE
+  GLP --> JE
+  GLS --> JW[(journal_entry_workflows)]
+  COA[CoaService TB] --> JE
+  REC[ReconciliationService] --> JE
+  TRE[FinancialAccountsService] --> FAE[(financial_accounts / entries)]
+  PAY --> FAE
+  PAY --> LE[(ledger_entries AR)]
+  INV --> LE
+  SUPL --> SLE[(supplier_ledger_entries)]
+  TAX[TaxService] --> TE[(tax_entries)]
+  CN --> TE
+  WB[GlWorkbench]:::dead -.-> JE
+  SP1[supplier-payments A]:::dead -.-> GLS
+  SP2[supplier-ledger/supplier-payments B]:::dead -.-> GLP
+  INS[Instruments]:::dead
+  BR[BankReconciliation]:::dead
+  IMP[ImportShipments]:::dead
+  classDef dead stroke-dasharray: 5 5,color:#888
+  classDef t fill:#eef

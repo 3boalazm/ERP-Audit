@@ -1,0 +1,9 @@
+flowchart TD
+  L1[Load request] --> L2{Older batch of same product still with customer above threshold}
+  L2 -- yes --> L3[Reject or override with permission and reason]
+  L2 -- no --> L4{Batch sellable and not expired}
+  L4 -- no --> L5[Reject 400]
+  L4 -- yes --> L6[Atomic WAREHOUSE minus q and consignment plus q with ledger]
+  L6 --> L7[FEFO consumption at sale then invoice]
+  L6 --> L8[Periodic customer custody count]
+  L8 --> L9[Write off lost atomic with reason and approval]

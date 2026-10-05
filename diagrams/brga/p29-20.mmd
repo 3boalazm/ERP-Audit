@@ -1,0 +1,7 @@
+flowchart TD
+  P1[Catalog user creates product] --> P2{Price entered}
+  P2 -- no --> P3[UI blocks create today API accepts null]
+  P2 -- yes --> P4[Product active VAT fixed 14]
+  P4 --> P5[Registration number free text no expiry tracking]
+  P4 --> P6[Batches created per lot QUARANTINE]
+  G1[Gift request PRODUCT_SAMPLE line] --> G2[Reference only no stock movement]

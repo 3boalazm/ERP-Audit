@@ -1,0 +1,10 @@
+flowchart LR
+  U[Internet] -->|443/80| NPM[nginx-proxy-manager<br/>separate compose project, shared with HLOS]
+  NPM -->|nile-erp.codeandcanvas.net -> nile-pharma-erp-web-1:3000| WEB[web Next.js BFF]
+  NPM -.->|hlos-edge| HLOS[HLOS stack]
+  WEB -->|rewrites /api/iam.. /api/audit<br/>http://svc:3000/api| BE[iam organization products inventory<br/>crm sales accounting incentives audit-aggregator]
+  BE -->|KAFKA_BROKERS redpanda:9092| RP[(redpanda<br/>vol nile-pharma-erp_redpanda_data)]
+  BE -->|DATABASE_URL ...@nile-postgres:5432/nile_svc| PG[(nile-postgres postgres:18<br/>vol nile_postgres_data)]
+  BE -->|HTTP: crm->sales/products, sales->crm,<br/>accounting->sales/products/inventory,<br/>iam copilot->accounting/crm/products/inventory CURRENT only| BE
+  H["Host loopback 127.0.0.1:3000-3009"] --> WEB
+  H --> BE

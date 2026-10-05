@@ -1,0 +1,15 @@
+stateDiagram-v2
+  [*] --> QUARANTINE: POST /batches (create)
+  QUARANTINE --> RELEASED: release() needs QC PASS/CONDITIONAL
+  RELEASED --> EXPIRED: expire-batches job (expiryDate < now)
+  RELEASED --> QUARANTINE: quarantine()
+  EXPIRED --> QUARANTINE: quarantine() (allowed - no expiry check)
+  QUARANTINE --> QUARANTINE: quarantine() again (no guard)
+  QUARANTINE --> REJECTED: reject()
+  RELEASED --> REJECTED: reject()
+  EXPIRED --> REJECTED: reject()
+  QUARANTINE --> RECALLED: recall()
+  RELEASED --> RECALLED: recall()
+  EXPIRED --> RECALLED: recall()
+  REJECTED --> RECALLED: recall() (allowed)
+  RECALLED --> [*]

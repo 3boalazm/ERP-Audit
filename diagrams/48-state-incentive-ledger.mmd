@@ -1,0 +1,7 @@
+stateDiagram-v2
+  [*] --> PENDING: PaymentReceived
+  PENDING --> APPROVED: POST approve
+  APPROVED --> PAID: POST pay
+  PENDING --> REVERSED: PaymentReversed / manual
+  APPROVED --> REVERSED
+  PAID --> REVERSED: allowed, no payroll recovery step

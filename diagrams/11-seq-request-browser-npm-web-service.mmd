@@ -1,0 +1,17 @@
+sequenceDiagram
+    autonumber
+    participant B as Browser (React, token in localStorage)
+    participant NPM as Nginx Proxy Manager (shared w/ HLOS, TLS)
+    participant W as web (Next.js :3000)
+    participant S as Service (e.g. sales :3000 /api)
+    participant DB as Service DB (Postgres)
+    B->>NPM: HTTPS GET /api/sales/orders  (Authorization: Bearer <access>)
+    NPM->>W: proxy to web:3000 (compose default network)
+    Note over W: rewrite baked at build:<br/>/api/sales/:path* → http://sales:3000/api/:path*
+    W->>S: GET /api/orders (headers forwarded incl. Authorization)
+    S->>S: JwtAuthGuard (JWT_ACCESS_SECRET) → PermissionsGuard (@Permissions)
+    S->>DB: Prisma query
+    DB-->>S: rows
+    S-->>W: 200 JSON (AuditInterceptor writes audit_logs only for mutations)
+    W-->>B: 200 JSON (Cache-Control private,no-store + CSP headers)
+    Note over B,W: BFF variant: B→W GET /api/tasks / W fans out server-side with the same Bearer (bffGet, 6–8 s timeout)

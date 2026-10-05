@@ -1,0 +1,13 @@
+flowchart TD
+  T1[GRN draft with lines idempotency key damagedQty] --> T2{Validate batch product expiry against Products}
+  T2 -- invalid --> T3[Reject 400]
+  T2 -- valid --> T4[(QUARANTINE qty minus damaged)]
+  T2 --> T5[(DAMAGED damagedQty to damage sorting)]
+  T4 --> T6[QC record]
+  T6 --> T7{Decision via outbox}
+  T7 -- release with signature if required --> T8[(WAREHOUSE sellable)]
+  T7 -- reject --> T9["DAMAGED plus QuarantineDisposition event"]
+  T9 --> T10[Accounting per DEC-INV-03 supplier return or write off]
+  T8 --> T11[FEFO reserve consignment first]
+  T11 --> T12[Issue at agreed point DEC-INV-06 with cost layer and COGS]
+  T11 --> T13[Stale over 72h flagged exception queue manual release after sales and invoice check]

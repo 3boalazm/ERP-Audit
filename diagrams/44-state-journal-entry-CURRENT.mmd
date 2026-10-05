@@ -1,0 +1,19 @@
+stateDiagram-v2
+  state "GeneralLedgerService (registered)" as G {
+    [*] --> W_DRAFT: POST general-ledger/journals/drafts (journal_entry_workflows)
+    W_DRAFT --> W_SUBMITTED: submit
+    W_SUBMITTED --> W_APPROVED: approve (no SoD)
+    W_SUBMITTED --> W_REJECTED: reject (reason)
+    W_APPROVED --> POSTED: post -> INSERT journal_entries status POSTED
+    [*] --> POSTED: POST general-ledger/journals (accounting.coa.manage) — bypasses workflow
+    [*] --> POSTED: automatic sources (INVOICE, CREDIT_NOTE, STOCK_ISSUE, GOODS_RECEIPT, ...)
+    POSTED --> REVERSED: reverseInTransaction (+ new POSTED *_REVERSAL entry)
+  }
+  state "GlWorkbench (unregistered)" as WB {
+    [*] --> DRAFT
+    DRAFT --> SUBMITTED
+    SUBMITTED --> APPROVED: SoD creator != approver
+    SUBMITTED --> REJECTED
+    APPROVED --> POSTED_: OPEN period, updates COA balance
+    POSTED_ --> REVERSED_: SoD poster != reverser
+  }

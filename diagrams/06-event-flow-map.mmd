@@ -1,0 +1,56 @@
+flowchart LR
+  subgraph SALES[sales]
+    s1[orders / returns / shipments / saga / traceability]
+  end
+  subgraph INV[inventory]
+    i1[reservation.listener / transactions / allocation.engine / consignment / jobs]
+  end
+  subgraph ACC[accounting]
+    a1[invoices / payments / saga-listener / fx / jobs]
+  end
+  subgraph PRD[products]
+    p1[products / batches / jobs]
+  end
+  subgraph CRM[crm]
+    c1[accounts / onboarding / visits]
+  end
+  subgraph INC[incentives]
+    n1[intake / ledger]
+  end
+  subgraph IAM[iam]
+    m1[notifications listener]
+  end
+  AUD[(audit-aggregator<br/>audit_events + dead_letter_messages)]
+
+  s1 -- "inventory.stock.reserve-requested" --> i1
+  s1 -- "sales.order.cancelled" --> i1
+  s1 -- "sales.order.cancelled" --> a1
+  s1 -- "sales.order.marked-shipped" --> i1
+  s1 -- "sales.return.created" --> i1
+  s1 -- "sales.return.created" --> a1
+  s1 -- "sales.return.created" --> m1
+  s1 -- "sales.shipping.return.cash-received" --> a1
+  s1 -- "sales.credit.hold-triggered" --> m1
+  i1 -- "inventory.stock.reserved" --> s1
+  i1 -- "inventory.stock.reserved" --> a1
+  i1 -- "inventory.stock.reservation-failed" --> s1
+  i1 -- "inventory.stock.reservation-failed" --> m1
+  i1 -- "inventory.goods.received (outbox CURRENT)" --> a1
+  i1 -- "inventory.stock.issued (outbox, CURRENT only)" --> a1
+  i1 -- "inventory.supplier-return.created" --> a1
+  i1 -- "inventory.reservations.stale-detected / disposal.candidates-digest" --> m1
+  a1 -- "finance.invoice.generated / invoice.cancelled / return.credited" --> s1
+  a1 -- "finance.payment.received / reversed (outbox)" --> s1
+  a1 -- "finance.payment.received / reversed (outbox)" --> n1
+  a1 -- "finance.payment.failed (outbox)" --> m1
+  a1 -- "finance.fx-rate.stale" --> m1
+  p1 -- "products.price.changed" --> s1
+  p1 -- "quality.recall.initiated" --> s1
+  p1 -- "quality.recall.initiated" --> i1
+  p1 -- "quality.recall.initiated / near-expiry.digest" --> m1
+  p1 -- "quality.batch.quarantined / released / rejected, inventory.batch.expired" --> s1
+  p1 -- "quality.batch.quarantined / released / rejected, inventory.batch.expired" --> i1
+  c1 -- "crm.account.created" --> a1
+  c1 -- "crm.credit-limit.updated" --> s1
+  s1 & i1 & a1 & p1 -.->|system.job.completed| m1
+  s1 & i1 & a1 & p1 & c1 & n1 & m1 -.->|all topics + .dlq twins| AUD

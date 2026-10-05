@@ -1,0 +1,35 @@
+flowchart TD
+  subgraph OUT["Outside system - practice to be confirmed"]
+    X1["Internal need or purchase request - QUESTION"]
+    X2["Send PO to supplier - company template EUR CIP SIGHT"]
+    X3["Shipment, customs, NFSA EDA GOEIC clearance - QUESTION"]
+    X4["Freight, customs, broker invoices - QUESTION"]
+    X5["Pay supplier - QUESTION"]
+    X6["Damage claims with supplier or carrier - QUESTION"]
+    X7["Landed unit cost calculation before receipt - QUESTION"]
+  end
+  X1 --> PO1["Create PO"]
+  PO1 --> PO2{"Snapshot"}
+  PO2 -- "BASELINE" --> B1["DRAFT with client PO number"] --> B2["Submit"] --> B3["Approve by other user"] --> APP["PO APPROVED"]
+  PO2 -- "CURRENT" --> C1["SUPER_ADMIN only, server number, born APPROVED"] --> APP
+  APP --> X2 --> X3 --> GR["Goods receipt in Inventory - quarantine - manual unit cost"]
+  X7 -.-> GR
+  GR --> EV["Event GoodsReceived"]
+  EV --> AP["Supplier ledger DEBIT RECEIPT - AP raised"]
+  EV -. "CURRENT only, separate step" .-> GL["GL Dr 1131 Cr 2111"]
+  EV -. "CURRENT only, if PO line ref sent" .-> PROJ["PO receivedQty and PARTIAL or FULL status"]
+  APP --> VI["Register vendor invoice - manual"]
+  X4 -. "no invoice type, would be UNMATCHED_GRN" .-> VI
+  VI --> M{"Three-way match"}
+  M -- "BASELINE: received assumed equal ordered" --> MR{"Result"}
+  M -- "CURRENT: billed vs actual receivedQty" --> MR
+  MR -- "MATCHED" --> AFP["APPROVED_FOR_PAYMENT flag - no ledger effect"]
+  MR -- "mismatch or no PO" --> EXC["EXCEPTION_PENDING"] --> OVR{"Override by user other than registrant"}
+  OVR -- "approve" --> AFP
+  OVR -- "reject" --> REJ["REJECTED"]
+  AFP --> X5
+  X5 -. "BASELINE: free treasury withdrawal or expense, no supplier link" .-> TR["Treasury entry"]
+  X5 -. "CURRENT: payables pay button calls unmounted route - 404" .-> TR
+  SR["Supplier return in Inventory"] --> SRE["Supplier ledger CREDIT"]
+  X6 -.-> SR
+  LC["Landed cost voucher - record only"] -. "no link to receipt, batch cost or GL" .-> GR

@@ -1,0 +1,24 @@
+flowchart LR
+  subgraph B["BASELINE 89c2c31 (image tag release-89c2c31)"]
+    b1["accounting: 30 migrations (last 20260924120000_po_workflow_and_match_sod)<br/>36 Prisma models -> 37 tables incl. _prisma_migrations"]
+    b2["organization: 5 migrations, 24 models -> 25 tables"]
+    b3["inventory: 16 migrations, 13 models"]
+    b4["crm: 15 migrations"]
+  end
+  subgraph C["CURRENT fa40270 (not deployed)"]
+    c1["accounting: 41 migrations (+11: general_ledger ... bank_reconciliation)<br/>49 models -> 50 tables"]
+    c2["organization: 6 migrations (+rep_coverage), 25 models -> 26 tables"]
+    c3["inventory: 19 (+cost_layers, outbox, outbox_lease), 15 models"]
+    c4["crm: 17 (+lead_management, customer_pricing_profile)"]
+  end
+  subgraph D["Production DB (user-reported, no raw output)"]
+    d1["nile_accounting: 50 tables; _prisma_migrations up to bank_reconciliation;<br/>general_ledger + supplier_payments ROLLED_BACK then APPLIED with 0 steps"]
+    d2["nile_organization: 26 tables"]
+    d3["nile_inventory: cost layers + outbox tables listed"]
+    d4["nile_crm: 21 tables (same both)"]
+  end
+  b1 -. "code running?" .-> d1
+  c1 == "table count matches" ==> d1
+  c2 == "table count matches" ==> d2
+  c3 == "tables listed" ==> d3
+  R["Inference: DB schema at CURRENT level while images tagged 89c2c31 -> verify with E-01..E-05"]

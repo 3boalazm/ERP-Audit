@@ -1,0 +1,21 @@
+sequenceDiagram
+  autonumber
+  participant PS as PaymentsService.recordInTransaction
+  participant GP as GlPostingService.post (raw SQL)
+  participant DB as nile_accounting (same SERIALIZABLE tx)
+  PS->>DB: payments / invoices / ledger_entries / treasury writes (as baseline)
+  alt treasury resolved (CASH/BANK/E_WALLET/INSTAPAY)
+    PS->>GP: postArPayment(paymentId, financialAccountId, amountBase)
+  else method = CHECK (no treasury)
+    PS->>GP: postArPayment(financialAccountId = null)
+  end
+  GP->>DB: SELECT journal_entries WHERE source_type='AR_PAYMENT' AND source_id=paymentId (idempotency)
+  GP->>DB: SELECT financial_accounts FOR SHARE → map CASH=1111, BANK=1112, E_WALLET/INSTAPAY=1113
+  GP->>DB: SELECT chart_of_accounts codes (debit treasury or 1122 / credit 1121) must be active/non-header/EGP
+  GP->>DB: SELECT fiscal_periods OPEN covering now() FOR SHARE (else 400)
+  GP->>DB: INSERT journal_entries (journal_number, created_by, status POSTED ...)
+  Note over GP,DB: omits entry_number/entry_date/created_by_id (NOT NULL, no default in 20260927120000)
+  GP->>DB: INSERT journal_lines x2 (omits line_no NOT NULL)
+  GP->>DB: UPDATE accounts SET balance ...   (table "accounts" does not exist in nile_accounting)
+  GP->>DB: INSERT ledger_entries refType=JOURNAL_LINE (COA ids into the customer AR ledger)
+  Note over PS,DB: any failure above rolls back the whole payment

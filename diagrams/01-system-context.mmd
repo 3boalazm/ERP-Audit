@@ -1,0 +1,20 @@
+flowchart LR
+  subgraph Users["Actors (roles from IAM permission catalogue)"]
+    U1["Sales reps / field sales"]
+    U2["Sales & credit managers / approvers"]
+    U3["Accountants / finance managers"]
+    U4["Warehouse & QA staff"]
+    U5["HR / payroll staff"]
+    U6["Admins (SUPER_ADMIN)"]
+  end
+  NP(["Nile Pharma ERP<br/>nile-erp.codeandcanvas.net"])
+  U1 & U2 & U3 & U4 & U5 & U6 -->|HTTPS browser / PWA| NP
+  NP -->|"Copilot prompts + ERP tool data (server-side from IAM)"| LLM["External LLM providers<br/>Gemini / Groq / OpenAI (config-dependent)"]
+  NP -.->|"error events if SENTRY_DSN set (Unknown)"| SEN["Sentry (optional)"]
+  NP -.->|"map tiles (CSP allow-list)"| OSM["tile.openstreetmap.org"]
+  XL["Company Excel files (Data/ folder, import templates)"] -.->|"manual CSV/XLSX imports"| NP
+  NP -.->|"NOT integrated (deferred)"| ETA["Egyptian Tax Authority e-invoice (ETA)"]
+  NP -.->|"NOT integrated: official GL / VAT filing kept outside? (Open question)"| EXT["External accounting / tax filing"]
+  NP -.->|"SMS/WhatsApp providers: open decision"| MSG["Notification providers"]
+  OPS["Code & Canvas operators (SSH)"] -->|"manual deploy / recovery"| NP
+  GH["GitHub (repo, Actions, GHCR)"] -.->|"CURRENT pipeline only, not evidenced in prod"| NP

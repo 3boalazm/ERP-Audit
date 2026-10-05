@@ -1,0 +1,34 @@
+sequenceDiagram
+  autonumber
+  participant B as Browser (localStorage tokens)
+  participant N as NPM reverse proxy
+  participant W as web (Next.js rewrites /api/<svc>/*)
+  participant I as IAM :3000 /api
+  participant S as Service X (e.g. organization) :3000 /api
+  participant DB as nile_iam (users, sessions, roles)
+  B->>N: POST /api/iam/auth/login {email,password}
+  N->>W: forward
+  W->>I: rewrite → /api/auth/login
+  I->>I: ThrottlerGuard (5/min keyed on req.ip, i.e. the web container IP, no trust proxy)
+  I->>DB: findByEmailWithSecret, lockout check, bcrypt.compare
+  alt bad password / locked
+    I->>DB: failedLoginAttempts+1 (lockedUntil at 5), audit_logs auth.login.failed|locked
+    I-->>B: 401 INVALID_CREDENTIALS / 423 ACCOUNT_LOCKED
+  else ok
+    I->>DB: reset counter, INSERT sessions(refresh hash, expiresAt=+7d)
+    I-->>B: accessToken(HS256, 900s, roles+permissions[+mcp]) + refreshToken(7d)
+    B->>B: localStorage.setItem(accessToken, refreshToken)
+  end
+  B->>N: GET /api/org/employees  Authorization: Bearer access
+  N->>W: forward
+  W->>S: rewrite → /api/employees (Authorization forwarded)
+  S->>S: ThrottlerGuard (60/min per req.ip)
+  S->>S: JwtAuthGuard → passport-jwt verify(JWT_ACCESS_SECRET)
+  opt token has sid OR SESSION_IDLE_ENFORCEMENT=true
+    S->>I: GET IAM_SESSION_URL/auth/session-check (same bearer)
+    I-->>S: {active:true} | 401
+  end
+  S->>S: assertPasswordChangeNotRequired (mcp → 403)
+  S->>S: PermissionsGuard (controller @UseGuards): token.permissions ⊇ @Permissions
+  S-->>B: 200 data | 401 TOKEN_EXPIRED/INVALID_TOKEN | 403
+  Note over B,I: every 10 min: POST /api/iam/auth/refresh {refreshToken} → rotation + new access token

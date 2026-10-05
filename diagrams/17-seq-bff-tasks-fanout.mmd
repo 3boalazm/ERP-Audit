@@ -1,0 +1,28 @@
+sequenceDiagram
+    autonumber
+    participant B as Browser /dashboard/tasks
+    participant T as web BFF /api/tasks
+    participant SA as sales
+    participant IN as inventory
+    participant OR as organization
+    participant AC as accounting
+    participant CR as crm
+    participant IA as iam
+    B->>T: GET /api/tasks (Bearer)
+    alt no Authorization header
+        T-->>B: 401
+    end
+    par Promise.all, each bffGet timeout 6 s, no retry
+        T->>SA: GET /orders?status=PENDING_APPROVAL
+        T->>IN: GET /transactions/adjustment-requests?status=PENDING
+        T->>OR: GET /attendance/leaves?status=PENDING
+        T->>OR: GET /expenses?status=SUBMITTED
+        T->>AC: GET /matching/discrepancies
+        T->>CR: GET /support/tickets?status=OPEN
+        T->>CR: GET /field-sales/follow-ups?overdue=true
+        T->>IA: GET /notifications/unread-count
+        T->>AC: GET /general-ledger/journals/drafts?status=SUBMITTED (CURRENT only)
+    end
+    Note over T: failure of one call → that bucket {items:[],count:0,error:"<Arabic status msg>"}<br/>count = rows.length of the returned page / items = first 5 / ageHours computed server-side
+    T-->>B: {checkedAt,total,buckets[],errors[]}
+    Note over B: read-only inbox / each bucket links to the owning screen

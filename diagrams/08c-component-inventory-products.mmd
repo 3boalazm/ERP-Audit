@@ -1,0 +1,17 @@
+flowchart TB
+  Web[web BFF] -->|HTTP JWT| INV[inventory service]
+  Web -->|HTTP JWT| PRD[products service]
+  ACC[accounting service] -->|HTTP validate-batch / issue-direct / rollback-direct| INV
+  ACC -->|HTTP GET /products/public-prices| PRD
+  CRM[crm] -->|HTTP PRODUCTS_URL| PRD
+  PRD -->|BatchReleased BatchRejected BatchQuarantined BatchExpired RecallInitiated| K[(Redpanda)]
+  PRD -->|ProductPriceChanged ProductCostChanged BatchCreated BulkOperationCompleted NearExpiryDigest| K
+  SAL[sales] -->|StockReserveRequested OrderMarkedShipped OrderCancelled SalesReturnCreated| K
+  K --> INV
+  INV -->|outbox CURRENT: GoodsReceived StockIssued| K
+  INV -->|direct: StockReserved StockReservationFailed StockReleased StockAdjusted SupplierReturnCreated StockTransferred Consignment* QuarantineBlockedReservations reports| K
+  K -->|StockReserved StockReservationFailed| SAL
+  K -->|StockReserved GoodsReceived StockIssued SupplierReturnCreated| ACC
+  K -->|ProductPriceChanged Batch* RecallInitiated| SAL
+  INV --- DBI[(nile_inventory)]
+  PRD --- DBP[(nile_products)]

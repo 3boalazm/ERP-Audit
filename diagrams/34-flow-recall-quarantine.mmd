@@ -1,0 +1,8 @@
+flowchart LR
+  QA["QA user (products.batches.*)"] -->|"POST /batches/:id/recall|quarantine|reject|release"| PB["Products: batch status updated FIRST"]
+  PB -->|"direct publish (no outbox) quality.recall.initiated / batch.*"| K((Redpanda))
+  K --> INV["Inventory: block batch, move unreserved stock to QUARANTINE/DAMAGED,<br/>hold consignment, report blocked reservations"]
+  K --> SAL["Sales: blocked_batches + orders ON_HOLD_RECALL;<br/>ship re-checks assertShippable"]
+  K --> IAMN["IAM notifications"]
+  PB -.->|"publish fails after commit"| LOST["Event lost; status guard blocks re-issuing recall<br/>(INVPRD-04)"]
+  SAL -->|"release RESUME / CANCEL"| SAL2["CANCEL ignores collected money (SCI-24)"]

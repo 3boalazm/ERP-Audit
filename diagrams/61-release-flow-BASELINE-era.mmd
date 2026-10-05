@@ -1,0 +1,10 @@
+flowchart TD
+  P[Developer merges / prepares arena branch] --> Q[BASELINE ci.yml: build/lint/test/compose config<br/>no image build, no deploy]
+  Q --> R0[Operator SSH to VPS]
+  R0 --> R1[Manual pg_dump x9 via docker exec nile-postgres<br/>to ~/backups on same VPS]
+  R1 --> R2[git checkout --detach branch HEAD<br/>IMAGE_TAG=release-short-sha]
+  R2 --> R3[docker compose -f production build on VPS<br/>local images nile-pharma-erp/svc:IMAGE_TAG]
+  R3 --> R4[up --no-deps db-migrate<br/>schema gate -> migrate deploy x9 -> IAM seed]
+  R4 -->|exit 0| R5[up -d --no-deps --no-build services + web]
+  R4 -->|exit 3 / 1| R6[stop; manual diagnosis]
+  R5 --> R7[curl /login local+public, HLOS check]

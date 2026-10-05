@@ -1,0 +1,17 @@
+flowchart TD
+  A["Accounting: تسجيل دفعة على فاتورة لها مندوب"] --> B["نشر finance.payment.received مع collection_rate"]
+  B --> C{"rep_id موجود؟"}
+  C -- لا --> C0["تجاهل"]
+  C -- نعم --> D["intake: قراءة نسخة القواعد الفعالة"]
+  D -- "لا نسخة فعالة" --> D0["استثناء ثم إعادة محاولة ثم DLQ - لا عمولة"]
+  D --> E["الفترة = شهر وقت المعالجة"]
+  E --> F["engine: شرائح هامشية على مبلغ هذه الدفعة فقط من أول جنيه"]
+  F --> G["بونص 10/15/20 بالمئة حسب نسبة التحصيل"]
+  G --> H["معاملة واحدة: قيد PENDING + processed_event + RepScore"]
+  H --> I["نشر incentives.ledger.recorded و commission.calculated و bonus.triggered"]
+  H --> J["شاشة الحوافز: اعتماد PENDING الى APPROVED"]
+  J --> K["صرف APPROVED الى PAID - تغيير حالة فقط بلا قيد ولا خزينة ولا فاعل"]
+  K --> K1["QUESTION: كيف يصرف الحافز فعليا اليوم - نقدا ام ضمن الراتب ام من الشيت؟"]
+  R["Accounting: finance.payment.reversed"] --> S["عكس اقدم قيد غير معكوس لنفس payment_id حتى لو PAID"]
+  S --> S1["RepScore ينقص - لا استرداد مالي"]
+  M["الممارسة: شيت مبيعات تفصيلي ربع سنوي + اسكيمة الانسنتف"] --> M1["QUESTION: هل يحسب الحافز يدويا من الشيت ويصرف خارج النظام حاليا؟"]

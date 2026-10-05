@@ -1,0 +1,24 @@
+flowchart LR
+  subgraph Products
+    B0[Batch created status=QUARANTINE] -->|POST /batches/:id/release + QC PASS| BR[(BatchReleased event)]
+  end
+  GR[POST /transactions/goods-receipt] -->|default| Q[[QUARANTINE pool onHand+q\nRECEIPT + QUARANTINE_IN rows\nCURRENT: cost layer + outbox GoodsReceived]]
+  GR -->|pool=WAREHOUSE needs receive-released| W
+  BR -->|onBatchReleased moveBatch| W[[WAREHOUSE pool sellable]]
+  Q -->|BatchRejected| D[[DAMAGED pool]]
+  W -->|BatchQuarantined / BatchExpired unreserved only| Q
+  W -->|BatchRejected unreserved only| D
+  SRR[(StockReserveRequested)] -->|allocate FEFO + reserve SERIALIZABLE| R{{Reservation OPEN\nWAREHOUSE: reserved+q\nCONSIGNMENT: available->consumed}}
+  W -.-> R
+  C[[Customer consignment stock]] -.consignment first.-> R
+  R -->|OrderMarkedShipped issue| I[ISSUE: onHand-q reserved-q\nno COGS, no layer]
+  R -->|OrderCancelled / shortfall release| W
+  DI[POST /allocation/issue-direct] -->|SERIALIZABLE onHand-q\nCURRENT: FIFO layers + outbox StockIssued| I2[ISSUE DIRECT_INVOICE]
+  I2 -->|rollback-direct| W
+  SRC[(SalesReturnCreated)] -->|SELLABLE| W
+  SRC -->|DAMAGED| X[ledger row qty 0 only]
+  W -->|supplier-return| OUT[Supplier]
+  W -->|transfer| W2[[WAREHOUSE pool other warehouse]]
+  W -->|consign-out| C
+  C -->|consignment return available| W
+  C -->|consignment return held| Q

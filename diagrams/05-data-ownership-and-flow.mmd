@@ -1,0 +1,25 @@
+flowchart TB
+  subgraph Master["Master data owners"]
+    PRD[("nile_products: products, batches, QC, suppliers, UOM, price lists")]
+    CRM[("nile_crm: accounts(customers), leads, visits, assignments, credit_limit")]
+    IAM[("nile_iam: users, roles, permissions, sessions")]
+    ORG[("nile_organization: employees, departments, payroll, expenses")]
+  end
+  subgraph Ops["Operational / transactional"]
+    SAL[("nile_sales: orders, allocations, returns, account_credit, product_prices projection")]
+    INV[("nile_inventory: stock_balances, transactions, reservations, consignment, cost layers*")]
+    ACC[("nile_accounting: invoices, payments, ledgers, PO/vendor invoices, COA, journals*")]
+    INC[("nile_incentives: rule_sets, incentive_ledger")]
+    AUD[("nile_audit: audit_events chain, dead_letter_messages")]
+  end
+  PRD -->|"products.price.changed -> projection"| SAL
+  PRD -->|"quality.* batch status"| INV & SAL
+  CRM -->|"crm.credit-limit.updated -> account_credit"| SAL
+  CRM -->|"crm.account.created -> opening balance"| ACC
+  SAL -->|"reserve-requested / cancelled / shipped / return.created"| INV
+  INV -->|"stock.reserved (carries invoice lines) / goods.received / supplier-return / stock.issued*"| ACC
+  INV -->|"stock.reserved / failed"| SAL
+  ACC -->|"invoice.generated/cancelled, payment.received/reversed, return.credited"| SAL
+  ACC -->|"payment.received/reversed"| INC
+  SAL & INV & ACC & PRD & CRM & IAM & ORG & INC -.->|"every topic + .dlq"| AUD
+  X["* = CURRENT-only tables/events; no cross-DB foreign keys anywhere (IDs as TEXT)"]

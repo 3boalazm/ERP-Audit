@@ -1,0 +1,11 @@
+flowchart TD
+  X1[QA initiates recall reason severity] --> X2[Batch RECALLED and RecallInitiated direct publish]
+  X2 --> X3[Inventory blocks batch for allocation]
+  X2 --> X4[Inventory freezes customer consignment available to held]
+  X2 --> X5[Sales blocks batch and holds ALLOCATED INVOICED PAID orders]
+  X5 --> X6{Recall officer decision per order}
+  X6 -- RESUME --> X7[Refused while batch blocked]
+  X6 -- CANCEL --> X8[Order CANCELLED reservation released money ignored]
+  X2 --> X9[Trace screen distribution consignment serials export]
+  X9 --> X10[Customer and regulator notification outside system]
+  X10 --> X11[Physical retrieval and closure outside system]

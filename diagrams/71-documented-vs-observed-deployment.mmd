@@ -1,0 +1,11 @@
+flowchart LR
+  subgraph Documented_CURRENT[CURRENT docs + compose]
+    C1[GH Actions CI -> digest images] --> C2[deploy-production.sh on Hostinger] --> C3[(Neon Postgres, 9 DBs)]
+    C2 --> C4[Neon restore point before migrate]
+  end
+  subgraph Documented_OLD[docs/audit 00-23, payroll design]
+    R1[Railway merged containers via merge-launcher.js] --> R2[(Neon)]
+  end
+  subgraph Observed[runtime.txt evidence]
+    O1[accounting:release-89c2c31 tag, env /tmp/nile-recovery-release.env] --> O2[(nile-postgres:5432 local container, PG18)]
+  end

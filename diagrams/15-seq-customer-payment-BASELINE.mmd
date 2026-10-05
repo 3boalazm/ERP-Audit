@@ -1,0 +1,29 @@
+sequenceDiagram
+  autonumber
+  participant UI
+  participant PC as PaymentsController
+  participant PS as PaymentsService
+  participant DB as nile_accounting (SERIALIZABLE tx)
+  participant OB as OutboxService
+  participant K as Kafka
+  UI->>PC: POST /payments {invoiceId, amount, method, idempotencyKey,...}
+  PC->>PS: record(dto, actorId)
+  PS->>DB: findUnique payment by idempotencyKey (outside tx)
+  alt key exists
+    PS-->>UI: replay (assertSamePayment else 409)
+  else new
+    PS->>DB: BEGIN SERIALIZABLE
+    PS->>DB: invoice findUnique / reject CANCELLED / paid+credited <= total (Decimal)
+    PS->>DB: resolveTreasuryAccount (CHECK → none / CASH → default box, auto-create "خزينة 1")
+    PS->>DB: INSERT payments
+    PS->>DB: UPDATE invoices paidAmount, status PAID|PARTIAL
+    PS->>DB: INSERT ledger_entries CREDIT refType=PAYMENT (amount = dto.amount)
+    opt treasury resolved
+      PS->>DB: INSERT financial_account_entries PAYMENT_IN / UPDATE financial_accounts.balance
+    end
+    PS->>DB: collection rate for rep
+    PS->>DB: INSERT outbox_events (PaymentReceived) / INSERT audit_logs
+    PS->>DB: COMMIT (P2034 → retry x3 / P2002 on idempotency_key → return winner)
+    OB->>DB: poll every 5s, lease row
+    OB->>K: publish finance.payment.received
+  end

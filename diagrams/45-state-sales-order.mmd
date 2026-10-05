@@ -1,0 +1,42 @@
+stateDiagram-v2
+    [*] --> DRAFT: POST /orders/import
+    [*] --> CREDIT_HOLD: create (over limit)
+    [*] --> PENDING_APPROVAL: create (grandTotal >= 100000)
+    [*] --> APPROVED: create (auto)
+    DRAFT --> CREDIT_HOLD: submit
+    DRAFT --> PENDING_APPROVAL: submit
+    DRAFT --> APPROVED: submit
+    CREDIT_HOLD --> APPROVED: credit-override (skips approval threshold)
+    PENDING_APPROVAL --> APPROVED: approve
+    PENDING_APPROVAL --> REJECTED: reject
+    APPROVED --> ALLOCATING: startAllocation
+    ALLOCATION_FAILED --> ALLOCATING: allocation-retry
+    ALLOCATING --> ALLOCATION_FAILED: publish failure / StockReservationFailed (unconditional)
+    ALLOCATING --> ALLOCATED: StockReserved (unconditional)
+    ALLOCATING --> INVOICED: InvoiceGenerated
+    ALLOCATED --> INVOICED: InvoiceGenerated
+    INVOICED --> PAID: PaymentReceived fully_paid
+    PAID --> INVOICED: PaymentReversed
+    ALLOCATED --> SHIPPED: ship
+    INVOICED --> SHIPPED: ship
+    PAID --> SHIPPED: ship
+    SHIPPED --> DELIVERED: deliver
+    SHIPPED --> PAID: PaymentReceived fully_paid (unconditional overwrite, SCI-01)
+    DELIVERED --> PAID: PaymentReceived fully_paid (unconditional overwrite, SCI-01)
+    ALLOCATED --> ON_HOLD_RECALL: recall/quarantine/expiry
+    INVOICED --> ON_HOLD_RECALL
+    PAID --> ON_HOLD_RECALL
+    ON_HOLD_RECALL --> ALLOCATED: release RESUME (restores previous)
+    ON_HOLD_RECALL --> CANCELLED: release CANCEL
+    DRAFT --> CANCELLED: cancel
+    PENDING_APPROVAL --> CANCELLED
+    CREDIT_HOLD --> CANCELLED
+    APPROVED --> CANCELLED
+    ALLOCATING --> CANCELLED
+    ALLOCATED --> CANCELLED
+    ALLOCATION_FAILED --> CANCELLED
+    INVOICED --> CANCELLED: only if collectedAmount <= 0
+    CANCELLED --> ALLOCATED: late StockReserved (race, SCI-02)
+    REJECTED --> [*]
+    CANCELLED --> [*]
+    DELIVERED --> [*]

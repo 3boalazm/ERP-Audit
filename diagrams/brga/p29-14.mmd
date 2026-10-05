@@ -1,0 +1,17 @@
+flowchart TD
+  U1[Return request with reason code] --> U2{Policy check shelf life package window}
+  U2 -- fail --> U3[Reject or override with permission and reason]
+  U2 -- pass --> U4{Approver independent DEC-INV-16}
+  U4 -- reject --> U5[REJECTED edit and resubmit]
+  U4 -- approve --> U6[APPROVED awaiting goods]
+  U6 --> U7[Physical receipt to QUARANTINE RECEIVED]
+  U7 --> U8[Inspection by storekeeper or QA not creator]
+  U8 -- sellable and shelf life ok --> U9[(WAREHOUSE)]
+  U8 -- damaged or expired --> U10[(DAMAGED to damage sorting)]
+  U8 --> U11[Credit for accepted lines only]
+  U11 --> U12{Invoice paid}
+  U12 -- no --> U13[Credit note reduces outstanding]
+  U12 -- yes --> U14[Customer credit or refund payable then separate refund voucher]
+  U9 --> U15[CLOSED]
+  U10 --> U15
+  U15 --> U16[Reversal path with approval if posted in error]

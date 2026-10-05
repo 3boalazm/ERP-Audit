@@ -1,0 +1,10 @@
+flowchart TD
+  K1[Consignment agreement per customer] --> K2[Load stock single or delivery note]
+  K2 --> K3{Batch expired or blocked}
+  K3 -- yes C only --> K4[Reject 400]
+  K3 -- no or B --> K5[WAREHOUSE minus q and ConsignmentStock available plus q same tx]
+  K5 --> K6[Sales order with customer FEFO consumes consignment first]
+  K6 --> K7[available to consumed at reservation then normal invoice]
+  K5 --> K8[Return held first to QUARANTINE rest to WAREHOUSE]
+  K5 --> K9[Write off lost two separate writes not atomic]
+  R0[Recall] --> K10[available to held CONSIGN_HOLD]

@@ -1,0 +1,32 @@
+flowchart TD
+  A["Create order or direct invoice (single sales document, DEC-O2C-13 and REQ-O2C-029)"] --> B["Server price resolution: customer list > segment list > rules > catalog (REQ-O2C-013, DEC-O2C-02/05)"]
+  B --> B2["Apply at most one pricing rule + manual discount within user limit (REQ-O2C-017, DEC-O2C-06)"]
+  B2 --> B3["Auto-generate bonus lines, price 0 (REQ-O2C-019/020, DEC-O2C-07/08)"]
+  B3 --> C{"Discount governance (REQ-O2C-009/010, DEC-O2C-03)"}
+  C -- "above max or >= 100pct" --> X1["Reject"]
+  C -- "between approval and max" --> AP1["PENDING_APPROVAL reason DISCOUNT"]
+  C -- "within limit" --> D["Snapshot price source, rule terms, shipping quote (REQ-O2C-014/053)"]
+  AP1 --> D
+  D --> E["Credit check reference -> C6 (CREDIT_HOLD / override)"]
+  E --> F{"Amount approval from settings (REQ-O2C-007/008, DEC-O2C-21)"}
+  F -- "needs approval" --> G["Approver != creator"]
+  F -- "no" --> H["APPROVED"]
+  G --> H
+  H --> I["Outbox event -> Inventory FEFO allocation (C4) per line incl. bonus"]
+  I --> J["Picking list FEFO + location (REQ-O2C-057)"]
+  J --> K{"Invoice timing (DEC-O2C-14)"}
+  K -- "at reservation (current)" --> L["Invoice: sequential number, customer terms, lines (REQ-O2C-034/035)"]
+  K -- "at shipment (option)" --> L
+  J --> M["Trip / vehicle (cold-chain check) and dispatch (REQ-O2C-058)"]
+  M --> N["Ship (recall gate), stock issue, partial ship keeps backorder (REQ-O2C-059)"]
+  N --> O["Deliver: server-enforced signature POD, durable storage (REQ-O2C-056, DEC-O2C-19)"]
+  L --> P["Collection: receipt header + allocations + unallocated, collector + instrument (REQ-O2C-043/046)"]
+  P --> Q{"Instrument type (DEC-O2C-18)"}
+  Q -- "cash/transfer" --> R["AR credit + treasury entry, one SERIALIZABLE TX + outbox"]
+  Q -- "cheque" --> S["Instrument RECEIVED -> DEPOSITED -> CLEARED to bank or BOUNCED"]
+  S -- "BOUNCED" --> T["Atomic reversal across all allocations + treasury + commission (REQ-O2C-044/045)"]
+  R --> U["Settlement status separate from fulfilment status (REQ-O2C-004)"]
+  T --> U
+  U --> V["Statement, aging by rep/segment, sales register (REQ-O2C-047/048/051)"]
+  W["Cancel before ship: release + void, no revive (REQ-O2C-022)"] -.-> U
+  Y["Invoice cancel / reissue with lines + second approval (REQ-O2C-037, DEC-O2C-17)"] -.-> U
